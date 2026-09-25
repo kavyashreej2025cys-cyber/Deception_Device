@@ -963,3 +963,136 @@ select {
     min-width: 520px;
   }
 }
+.alerts-panel {
+  border-color: rgba(255, 190, 85, 0.3);
+}
+
+.alert-list {
+  display: grid;
+  gap: 14px;
+}
+
+.alert-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 5px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(114, 136, 164, 0.25);
+  border-radius: 14px;
+  background: rgba(7, 19, 35, 0.55);
+}
+
+.alert-indicator {
+  background: #7288a4;
+}
+
+.alert-item-critical .alert-indicator {
+  background: #ff637d;
+}
+
+.alert-item-high .alert-indicator {
+  background: #ffbe55;
+}
+
+.alert-item-medium .alert-indicator {
+  background: #53a7ff;
+}
+
+.alert-item-low .alert-indicator {
+  background: #35d49a;
+}
+
+.alert-content {
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+.alert-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.alert-title {
+  margin: 0;
+  color: #f4f8ff;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.alert-type {
+  margin: 5px 0 0;
+  color: #7288a4;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.alert-message {
+  margin: 14px 0;
+  color: #afc3dd;
+  line-height: 1.6;
+}
+
+.alert-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: #7288a4;
+  font-size: 0.8rem;
+}
+
+.alert-meta strong {
+  color: #dce9fa;
+}
+
+.alert-meta time {
+  margin-left: auto;
+}
+
+.alert-empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid rgba(53, 212, 154, 0.25);
+  border-radius: 14px;
+  background: rgba(53, 212, 154, 0.06);
+}
+
+.alert-empty-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(53, 212, 154, 0.15);
+  color: #35d49a;
+  font-weight: 800;
+}
+
+.alert-empty strong {
+  color: #dffbef;
+}
+
+.alert-empty p {
+  margin: 4px 0 0;
+  color: #86a6a0;
+}
+
+@media (max-width: 560px) {
+  .alert-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .alert-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .alert-meta time {
+    margin-left: 0;
+  }
+}

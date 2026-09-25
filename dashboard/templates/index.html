@@ -166,8 +166,31 @@
           <p class="summary-help">Contextual classifications</p>
         </div>
       </article>
+      <article class="summary-card">
+        <div class="summary-icon summary-icon-red" aria-hidden="true">
+          AL
+        </div>
+        <div>
+          <p class="summary-label">Open alerts</p>
+          <p id="summary-alerts" class="summary-value">—</p>
+          <p class="summary-help">Security review required</p>
+        </div>
+      </article>
     </section>
+    <section class="panel alerts-panel" aria-labelledby="alerts-title">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Security attention</p>
+          <h2 id="alerts-title">Open alerts</h2>
+        </div>
 
+        <span class="read-only-badge">Read only</span>
+      </div>
+
+      <div id="alert-list" class="alert-list" aria-live="polite">
+        <p class="loading-cell">Loading security alerts…</p>
+      </div>
+    </section>
     <section class="content-grid content-grid-wide">
       <article class="panel chart-panel">
         <div class="panel-header">

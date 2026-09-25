@@ -159,7 +159,13 @@ def api_summary():
               AND execution_status = 'recommended'
             """
         ).fetchone()[0]
-
+        open_alerts = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM alerts
+            WHERE status = 'open'
+            """
+        ).fetchone()[0]
         prediction_count = connection.execute(
             """
             SELECT COUNT(*)
@@ -183,6 +189,7 @@ def api_summary():
             "attackers": attacker_count,
             "active_decoys": active_decoys,
             "pending_approvals": pending_approvals,
+	    "open_alerts": open_alerts,
             "predictions": prediction_count,
             "latest_event": latest_event,
         }
@@ -324,6 +331,48 @@ def api_decisions():
                 created_at
             FROM deception_decisions
             ORDER BY decision_id DESC
+            LIMIT ?
+            """,
+            (bounded_limit(),),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    return jsonify(rows_as_dicts(rows))
+
+@app.get("/api/alerts")
+def api_alerts():
+    """Return recent security alerts ordered by severity."""
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT
+                alert_id,
+                fingerprint,
+                source_ip,
+                alert_type,
+                severity,
+                title,
+                message,
+                related_prediction_id,
+                related_decision_id,
+                status,
+                created_at,
+                updated_at,
+                acknowledged_at,
+                resolved_at
+            FROM alerts
+            ORDER BY
+                CASE severity
+                    WHEN 'CRITICAL' THEN 1
+                    WHEN 'HIGH' THEN 2
+                    WHEN 'MEDIUM' THEN 3
+                    WHEN 'LOW' THEN 4
+                    ELSE 5
+                END,
+                alert_id DESC
             LIMIT ?
             """,
             (bounded_limit(),),

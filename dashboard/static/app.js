@@ -25,6 +25,7 @@ const elements = {
   summaryAttackers: document.querySelector("#summary-attackers"),
   summaryDecoys: document.querySelector("#summary-decoys"),
   summaryApprovals: document.querySelector("#summary-approvals"),
+  summaryAlerts: document.querySelector("#summary-alerts"),
   summaryPredictions: document.querySelector(
     "#summary-predictions"
   ),
@@ -41,6 +42,7 @@ const elements = {
   ),
   eventsBody: document.querySelector("#events-table-body"),
   lifecycleList: document.querySelector("#lifecycle-list"),
+  alertList: document.querySelector("#alert-list"),
   eventLimit: document.querySelector("#event-limit"),
 
   chart: document.querySelector("#event-chart"),
@@ -301,6 +303,9 @@ function renderSummary(summary) {
   elements.summaryApprovals.textContent = formatNumber(
     summary.pending_approvals
   );
+  elements.summaryAlerts.textContent = formatNumber(
+    summary.open_alerts
+  );
   elements.summaryPredictions.textContent = formatNumber(
     summary.predictions
   );
@@ -314,6 +319,79 @@ function renderSummary(summary) {
     "hidden",
     approvalCount === 0
   );
+}
+
+function renderAlerts(alerts) {
+  const openAlerts = alerts.filter(
+    (alert) => String(alert.status).toLowerCase() === "open"
+  );
+
+  if (!openAlerts.length) {
+    elements.alertList.innerHTML = `
+      <div class="alert-empty">
+        <span class="alert-empty-icon" aria-hidden="true">✓</span>
+        <div>
+          <strong>No open security alerts</strong>
+          <p>The system has no unresolved alerts requiring review.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  elements.alertList.innerHTML = openAlerts
+    .map((alert) => {
+      const severity = String(
+        alert.severity || "medium"
+      ).toLowerCase();
+
+      return `
+        <article class="alert-item alert-item-${escapeHtml(severity)}">
+          <div class="alert-indicator" aria-hidden="true"></div>
+
+          <div class="alert-content">
+            <div class="alert-heading">
+              <div>
+                <p class="alert-title">
+                  ${escapeHtml(alert.title || "Security alert")}
+                </p>
+                <p class="alert-type">
+                  ${escapeHtml(formatName(alert.alert_type))}
+                </p>
+              </div>
+
+              ${badge(alert.severity, severity)}
+            </div>
+
+            <p class="alert-message">
+              ${escapeHtml(alert.message || "No additional details")}
+            </p>
+
+            <div class="alert-meta">
+              <span>
+                Source:
+                <strong>${escapeHtml(alert.source_ip || "Unknown")}</strong>
+              </span>
+
+              <span>
+                Decision:
+                <strong>#${formatNumber(alert.related_decision_id)}</strong>
+              </span>
+
+              <span>
+                Prediction:
+                <strong>#${formatNumber(alert.related_prediction_id)}</strong>
+              </span>
+
+              <time datetime="${escapeHtml(alert.created_at)}">
+                ${escapeHtml(formatTimestamp(alert.created_at))}
+              </time>
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 
@@ -788,6 +866,7 @@ async function refreshDashboard() {
 
     const [
       summary,
+      alerts,
       attackers,
       decoys,
       predictions,
@@ -797,6 +876,7 @@ async function refreshDashboard() {
       eventSeries,
     ] = await Promise.all([
       fetchJson("/api/summary"),
+      fetchJson("/api/alerts?limit=50"),
       fetchJson("/api/attackers?limit=50"),
       fetchJson("/api/decoys"),
       fetchJson("/api/predictions?limit=20"),
@@ -807,6 +887,7 @@ async function refreshDashboard() {
     ]);
 
     renderSummary(summary);
+    renderAlerts(alerts);
     renderAttackers(attackers);
     renderDecoys(decoys);
     renderLatestPrediction(predictions);
