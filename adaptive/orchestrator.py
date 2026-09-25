@@ -383,6 +383,30 @@ def main():
                 )
             )
             return
+        current_state = plan["current_container_state"]
+
+        if (
+            decision["execution_status"] == "activated"
+            and current_state["running"]
+            and current_state["health"] == "healthy"
+        ):
+            print(
+                json.dumps(
+                    {
+                        "mode": "manual-approved",
+                        "result": "already_active",
+                        "message": (
+                            "The decision is already activated and "
+                            "the container is healthy. No state was "
+                            "changed."
+                        ),
+                        "plan": plan,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return
 
         compose_result = run_compose_activation(
             implementation["compose_file"]
