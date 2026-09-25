@@ -1,0 +1,42 @@
+{
+  "catalog_version": "1.0.0",
+  "decoys": {
+    "ssh_admin_server": {
+      "name": "Adaptive SSH Administration Server",
+      "target_class": "BRUTE_FORCE",
+      "description": "A higher-interaction SSH decoy presenting administrative files, commands, and credentials.",
+      "implementation_status": "planned"
+    },
+    "finance_database": {
+      "name": "Adaptive Finance Database",
+      "target_class": "DATABASE_PROBING",
+      "description": "A targeted database decoy exposing realistic finance tables, invoices, payroll records, and query responses.",
+      "implementation_status": "planned"
+    },
+    "camera_management": {
+      "name": "Adaptive Camera Management Network",
+      "target_class": "IOT_PROBING",
+      "description": "A targeted CCTV and IoT management decoy with additional cameras, configuration endpoints, and fake firmware metadata.",
+      "implementation_status": "planned"
+    },
+    "service_discovery": {
+      "name": "Adaptive Service Discovery Surface",
+      "target_class": "RECONNAISSANCE",
+      "description": "A broader low-interaction service surface intended to attract and measure reconnaissance behavior.",
+      "implementation_status": "planned"
+    },
+    "layered_enterprise": {
+      "name": "Adaptive Layered Enterprise Environment",
+      "target_class": "MULTI_SERVICE_PROBE",
+      "description": "A coordinated multi-service decoy environment for attackers interacting across several service types.",
+      "implementation_status": "planned"
+    }
+  },
+  "class_to_decoy": {
+    "BRUTE_FORCE": "ssh_admin_server",
+    "DATABASE_PROBING": "finance_database",
+    "IOT_PROBING": "camera_management",
+    "RECONNAISSANCE": "service_discovery",
+    "MULTI_SERVICE_PROBE": "layered_enterprise"
+  }
+}

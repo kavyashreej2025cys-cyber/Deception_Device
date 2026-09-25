@@ -214,6 +214,28 @@ def init_db():
         )
         """
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS deception_decisions (
+            decision_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prediction_id INTEGER NOT NULL UNIQUE,
+            source_ip TEXT NOT NULL,
+            attack_class TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            risk_score INTEGER NOT NULL,
+            risk_bucket TEXT NOT NULL,
+            recommended_action TEXT NOT NULL,
+            decoy_key TEXT,
+            reason TEXT NOT NULL,
+            policy_version TEXT NOT NULL,
+            execution_mode TEXT NOT NULL DEFAULT 'observe',
+            execution_status TEXT NOT NULL DEFAULT 'recommended',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (prediction_id)
+                REFERENCES predictions(prediction_id)
+        )
+        """
+    )
 
     migrate_predictions_table(connection)
     create_indexes(connection)
