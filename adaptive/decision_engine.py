@@ -24,7 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from logger.database import get_connection
 
 
-POLICY_VERSION = "1.0.0"
+POLICY_VERSION = "1.0.1"
 
 MINIMUM_DECISION_CONFIDENCE = 0.55
 PREPARE_CONFIDENCE = 0.60
@@ -164,6 +164,17 @@ def choose_action(
     decoy_key = catalog["class_to_decoy"].get(
         attack_class
     )
+    if confidence < MINIMUM_DECISION_CONFIDENCE:
+        return {
+            "recommended_action": "COLLECT_MORE_DATA",
+            "decoy_key": None,
+            "reason": (
+                f"Model confidence {confidence:.3f} is below "
+                f"the decision threshold "
+                f"{MINIMUM_DECISION_CONFIDENCE:.2f}; the class "
+                f"{attack_class} is not trusted."
+            ),
+        }
 
     if attack_class == "NORMAL":
         return {

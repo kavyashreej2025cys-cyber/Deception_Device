@@ -1,0 +1,38 @@
+[Unit]
+Description=Cyber Deception Supervised Analysis Pipeline
+Documentation=file:///home/kavya/cyber-deception/
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=simple
+User=kavya
+WorkingDirectory=/home/kavya/cyber-deception
+
+ExecStart=/home/kavya/cyber-deception/venv/bin/python /home/kavya/cyber-deception/pipeline/run_pipeline.py --interval-seconds 5
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+Environment=PYTHONUNBUFFERED=1
+
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+ReadWritePaths=/home/kavya/cyber-deception/data
+ReadWritePaths=/home/kavya/cyber-deception/logger/cursors
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
