@@ -232,7 +232,7 @@ def record_activation(
         ).fetchone()
 
         if existing is None:
-            connection.execute(
+            insert_cursor = connection.execute(
                 """
                 INSERT INTO decoys (
                     name,
@@ -250,6 +250,7 @@ def record_activation(
                     activated_at,
                 ),
             )
+            decoy_id = insert_cursor.lastrowid
         else:
             connection.execute(
                 """
@@ -267,7 +268,7 @@ def record_activation(
                     existing["decoy_id"],
                 ),
             )
-
+            decoy_id = existing["decoy_id"]
         connection.execute(
             """
             UPDATE deception_decisions
@@ -276,6 +277,36 @@ def record_activation(
             WHERE decision_id = ?
             """,
             (decision["decision_id"],),
+        )
+        connection.execute(
+            """
+            INSERT INTO decoy_lifecycle_events (
+                decoy_id,
+                decision_id,
+                decoy_key,
+                action,
+                execution_mode,
+                status,
+                details,
+                created_at
+            )
+            VALUES (?, ?, ?, 'ACTIVATE', 'manual', 'completed', ?, ?)
+            """,
+            (
+                decoy_id,
+                decision["decision_id"],
+                decoy_key,
+                json.dumps(
+                    {
+                        "container_name": container_name,
+                        "source_ip": decision["source_ip"],
+                        "attack_class": decision["attack_class"],
+                        "confidence": decision["confidence"],
+                    },
+                    sort_keys=True,
+                ),
+                activated_at,
+            ),
         )
 
         connection.commit()
