@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOCK_PATH = PROJECT_ROOT / "data" / "pipeline.lock"
 
 sys.path.insert(0, str(PROJECT_ROOT))
-
+from alerts.alert_engine import run_alert_cycle
 from adaptive.decision_engine import run_decision_cycle
 from ai.classifier_service import (
     load_model_bundle,
@@ -185,11 +185,12 @@ def run_supervised_cycle(
     )
 
     decision_results = run_decision_cycle()
-
+    alert_results = run_alert_cycle()
     return {
         "cycle_started_at": cycle_started,
         "ingested_events": ingested_events,
         "profile_refreshed": profile_refreshed,
+	"alert_results": alert_results,
         "classifier_results": summarize_classifier_results(
             classifier_results
         ),
@@ -212,6 +213,7 @@ def cycle_has_activity(summary):
         or summary["profile_refreshed"]
         or summary["classifier_results"]
         or summary["decision_results"]
+	or summary["alert_results"]
     )
 
 

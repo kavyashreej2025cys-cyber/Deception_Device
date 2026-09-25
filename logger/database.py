@@ -255,6 +255,30 @@ def init_db():
         )
         """
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS alerts (
+            alert_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fingerprint TEXT UNIQUE NOT NULL,
+            source_ip TEXT,
+            alert_type TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            related_prediction_id INTEGER,
+            related_decision_id INTEGER,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            acknowledged_at TEXT,
+            resolved_at TEXT,
+            FOREIGN KEY (related_prediction_id)
+                REFERENCES predictions(prediction_id),
+            FOREIGN KEY (related_decision_id)
+                REFERENCES deception_decisions(decision_id)
+        )
+        """
+    )
 
     migrate_predictions_table(connection)
     create_indexes(connection)
