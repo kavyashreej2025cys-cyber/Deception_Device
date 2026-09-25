@@ -41,3 +41,6 @@ ai/reports/*.csv
 .idea/
 .DS_Store
 Thumbs.db
+
+# Adaptive decoy runtime logs
+adaptive/decoys/*/logs/

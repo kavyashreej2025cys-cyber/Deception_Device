@@ -1,0 +1,37 @@
+services:
+  finance-database:
+    build:
+      context: .
+    container_name: adaptive-finance-database
+    restart: unless-stopped
+
+    ports:
+      - "15432:15432"
+
+    volumes:
+      - ./logs:/app/logs
+
+    read_only: true
+
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 128m
+    cpus: 0.50
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:15432/health', timeout=2)"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

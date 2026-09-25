@@ -11,20 +11,20 @@ CURSOR_DIR = os.path.join(os.path.dirname(__file__), "cursors")
 os.makedirs(CURSOR_DIR, exist_ok=True)
 
 
-def get_cursor_path(service):
-    return os.path.join(CURSOR_DIR, f"{service}.cursor")
+def get_cursor_path(cursor_key):
+    return os.path.join(CURSOR_DIR, f"{cursor_key}.cursor")
 
 
-def read_cursor(service):
-    path = get_cursor_path(service)
+def read_cursor(cursor_key):
+    path = get_cursor_path(cursor_key)
     if os.path.exists(path):
         with open(path, "r") as f:
             return int(f.read().strip() or 0)
     return 0
 
 
-def write_cursor(service, position):
-    with open(get_cursor_path(service), "w") as f:
+def write_cursor(cursor_key, position):
+    with open(get_cursor_path(cursor_key), "w") as f:
         f.write(str(position))
 
 
@@ -55,11 +55,12 @@ def process_source(source, conn):
     log_path = source["log_path"]
     service = source["service"]
     fmt = source["format"]
+    cursor_key = source.get("cursor_key", service)
 
     if not os.path.exists(log_path):
         return 0
 
-    cursor = read_cursor(service)
+    cursor = read_cursor(cursor_key)
     new_events = 0
 
     with open(log_path, "r") as f:
@@ -94,7 +95,7 @@ def process_source(source, conn):
 
         new_cursor = f.tell()
 
-    write_cursor(service, new_cursor)
+    write_cursor(cursor_key, new_cursor)
     return new_events
 
 
@@ -104,7 +105,7 @@ def run_once():
     for source in HONEYPOT_SOURCES:
         count = process_source(source, conn)
         if count:
-            print(source["service"], "ingested", count, "new event(s)")
+            print(source.get("cursor_key", source["service"]), "ingested", count, "new event(s)")
         total += count
     conn.commit()
     conn.close()

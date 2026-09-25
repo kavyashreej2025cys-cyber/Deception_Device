@@ -38,4 +38,17 @@ HONEYPOT_SOURCES = [
         "log_path": os.path.join(BASE_DIR, "honeypots", "iot", "logs", "iot_events.json"),
         "format": "custom",
     },
+    {
+        "service": "database",
+        "cursor_key": "finance_database",
+        "log_path": os.path.join(
+            BASE_DIR,
+            "adaptive",
+            "decoys",
+            "finance_database",
+            "logs",
+            "finance_events.json",
+        ),
+        "format": "custom",
+    },
 ]
