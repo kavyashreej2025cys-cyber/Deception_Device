@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+    cowrie-ssh:
+
+        image: cowrie/cowrie:latest
+        container_name: cowrie-ssh
+        restart: unless-stopped
+        ports:
+          - "2222:2222"
+        volumes:
+          - ./logs:/cowrie/cowrie-git/var/log/cowrie

@@ -1,0 +1,43 @@
+# Python environments and caches
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Runtime databases and backups
+*.db
+*.db-*
+data/
+
+# Honeypot-generated logs
+honeypots/*/logs/
+
+# Central logger cursor state
+logger/cursors/
+
+# Generated AI training data and labels
+ai/scenario_log*.jsonl
+ai/dataset/*.csv
+
+# Trained model binaries
+ai/models/*.joblib
+ai/models/*.pkl
+
+# Generated evaluation reports
+ai/reports/*.json
+ai/reports/*.csv
+
+# Temporary/manual backups
+*.before_*
+*.bak
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+services:
+  iot-honeypot:
+    build: .
+    container_name: iot-honeypot
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./logs:/app/logs
