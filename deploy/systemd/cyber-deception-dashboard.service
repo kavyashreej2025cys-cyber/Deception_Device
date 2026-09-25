@@ -1,0 +1,41 @@
+[Unit]
+Description=Cyber Deception Read-Only Dashboard
+Documentation=file:///home/kavya/cyber-deception/
+Wants=network-online.target
+After=network-online.target cyber-deception-pipeline.service
+
+[Service]
+Type=simple
+User=kavya
+WorkingDirectory=/home/kavya/cyber-deception
+
+ExecStart=/home/kavya/cyber-deception/venv/bin/gunicorn --no-control-socket --workers 2 --threads 2 --bind 0.0.0.0:7000 --timeout 30 --access-logfile - --error-logfile - dashboard.app:app
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+MemoryMax=256M
+CPUQuota=50%
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
