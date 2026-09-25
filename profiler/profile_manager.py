@@ -6,9 +6,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "logger"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "detection"))
 
 from config.settings import IGNORE_IP_PREFIXES
-from database import get_connection
-from rules import evaluate_source
-from risk_score import compute_risk_score
+from logger.database import get_connection
+from detection.rules import evaluate_source
+from profiler.risk_score import compute_risk_score
 
 
 def fetch_events_by_source():

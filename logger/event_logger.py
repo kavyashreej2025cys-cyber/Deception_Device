@@ -5,7 +5,7 @@ import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from config.settings import HONEYPOT_SOURCES
-from database import get_connection, init_db
+from logger.database import get_connection, init_db
 
 CURSOR_DIR = os.path.join(os.path.dirname(__file__), "cursors")
 os.makedirs(CURSOR_DIR, exist_ok=True)
