@@ -236,6 +236,25 @@ def init_db():
         )
         """
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS decoy_lifecycle_events (
+            lifecycle_event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            decoy_id INTEGER,
+            decision_id INTEGER,
+            decoy_key TEXT NOT NULL,
+            action TEXT NOT NULL,
+            execution_mode TEXT NOT NULL,
+            status TEXT NOT NULL,
+            details TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (decoy_id)
+                REFERENCES decoys(decoy_id),
+            FOREIGN KEY (decision_id)
+                REFERENCES deception_decisions(decision_id)
+        )
+        """
+    )
 
     migrate_predictions_table(connection)
     create_indexes(connection)
