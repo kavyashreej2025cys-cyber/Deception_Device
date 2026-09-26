@@ -7,8 +7,9 @@ Automates:
 3. Random Forest classification
 4. Adaptive decision generation
 
-It deliberately does not activate or deactivate Docker decoys.
-Those actions remain behind explicit approval commands.
+Docker activation remains manual by default. Guarded lab-only automatic
+approval can be explicitly enabled for strictly eligible attack decisions.
+Automatic deactivation is never performed.
 """
 
 import argparse
@@ -26,6 +27,10 @@ LOCK_PATH = PROJECT_ROOT / "data" / "pipeline.lock"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 from alerts.alert_engine import run_alert_cycle
+from adaptive.auto_approver import (
+    auto_approval_enabled,
+    run_auto_approval_cycle,
+)
 from adaptive.decision_engine import run_decision_cycle
 from ai.classifier_service import (
     load_model_bundle,
@@ -162,6 +167,22 @@ def summarize_decisions(results):
         for result in results
     ]
 
+def count_pending_activations():
+    """Return the number of activation decisions awaiting approval."""
+    connection = get_connection()
+
+    try:
+        return connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM deception_decisions
+            WHERE recommended_action = 'ACTIVATE_DECOY'
+              AND execution_status = 'recommended'
+            """
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
 
 def run_supervised_cycle(
     model_bundle,
@@ -185,24 +206,36 @@ def run_supervised_cycle(
     )
 
     decision_results = run_decision_cycle()
+
+    # Preserve the security alert before an eligible decision is executed.
     alert_results = run_alert_cycle()
+
+    auto_approval_results = run_auto_approval_cycle()
+
+    docker_actions_executed = sum(
+        1
+        for result in auto_approval_results
+        if result.get("docker_action_executed")
+    )
+
+    pending_activations = count_pending_activations()
+
     return {
         "cycle_started_at": cycle_started,
         "ingested_events": ingested_events,
         "profile_refreshed": profile_refreshed,
-	"alert_results": alert_results,
         "classifier_results": summarize_classifier_results(
             classifier_results
         ),
         "decision_results": summarize_decisions(
             decision_results
         ),
-        "docker_actions_executed": 0,
-                "approval_required": any(
-            result.get("recommended_action")
-            == "ACTIVATE_DECOY"
-            for result in decision_results
-        ),
+        "alert_results": alert_results,
+        "auto_approval_enabled": auto_approval_enabled(),
+        "auto_approval_results": auto_approval_results,
+        "docker_actions_executed": docker_actions_executed,
+        "pending_activations": pending_activations,
+        "approval_required": pending_activations > 0,
     }
 
 
@@ -213,6 +246,7 @@ def cycle_has_activity(summary):
         or summary["profile_refreshed"]
         or summary["classifier_results"]
         or summary["decision_results"]
+	or summary["auto_approval_results"]
 	or summary["alert_results"]
     )
 
@@ -296,9 +330,18 @@ def main():
         print(f"ERROR: {error}", file=sys.stderr)
         raise SystemExit(1)
 
+    if auto_approval_enabled():
+        approval_message = (
+            "Guarded lab auto-approval is ENABLED for eligible attacks."
+        )
+    else:
+        approval_message = (
+            "Docker actions require separate explicit approval."
+        )
+
     print(
         "Supervised pipeline started. "
-        "Docker actions require separate explicit approval."
+        + approval_message
     )
 
     try:

@@ -212,6 +212,7 @@ def record_activation(
     decision,
     implementation,
     activated_at,
+    execution_mode="manual",
 ):
     """Register the active decoy and update decision status."""
     decoy_key = decision["decoy_key"]
@@ -272,11 +273,14 @@ def record_activation(
         connection.execute(
             """
             UPDATE deception_decisions
-            SET execution_mode = 'manual',
+            SET execution_mode = ?,
                 execution_status = 'activated'
             WHERE decision_id = ?
             """,
-            (decision["decision_id"],),
+            (
+		execution_mode,
+                decision["decision_id"],
+	    ),
         )
         connection.execute(
             """
@@ -290,12 +294,13 @@ def record_activation(
                 details,
                 created_at
             )
-            VALUES (?, ?, ?, 'ACTIVATE', 'manual', 'completed', ?, ?)
+            VALUES (?, ?, ?, 'ACTIVATE', ?, 'completed', ?, ?)
             """,
             (
                 decoy_id,
                 decision["decision_id"],
                 decoy_key,
+		execution_mode,
                 json.dumps(
                     {
                         "container_name": container_name,
@@ -317,7 +322,7 @@ def record_activation(
         connection.close()
 
 
-def record_failure(decision_id):
+def record_failure(decision_id, execution_mode="manual"):
     """Record a failed explicitly approved activation."""
     connection = get_connection()
 
@@ -325,11 +330,11 @@ def record_failure(decision_id):
         connection.execute(
             """
             UPDATE deception_decisions
-            SET execution_mode = 'manual',
+            SET execution_mode = ?,
                 execution_status = 'activation_failed'
             WHERE decision_id = ?
             """,
-            (decision_id,),
+            (execution_mode,decision_id,),
         )
         connection.commit()
     finally:
