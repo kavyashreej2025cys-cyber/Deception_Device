@@ -30,6 +30,10 @@ DEFAULT_POLL_SECONDS = 5
 DEFAULT_WINDOW_SECONDS = 300
 DEFAULT_MINIMUM_EVENTS = 1
 
+DUPLICATE_PREDICTION_COOLDOWN_SECONDS = 30
+SIGNIFICANT_CONFIDENCE_CHANGE = 0.05
+DECISION_CONFIDENCE_BOUNDARIES = (0.55, 0.60, 0.70)
+
 
 def utc_iso_now():
     """Return the current UTC time as ISO-8601."""
@@ -192,6 +196,112 @@ def fetch_window_events(
     return matching_events
 
 
+
+def fetch_latest_prediction(source_ip):
+    """Return the newest stored live prediction for a source."""
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM predictions
+            WHERE source_ip = ?
+              AND last_event_id IS NOT NULL
+            ORDER BY prediction_id DESC
+            LIMIT 1
+            """,
+            (source_ip,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    return dict(row) if row is not None else None
+
+
+def confidence_band(confidence):
+    """Return the adaptive-policy confidence interval."""
+    value = float(confidence)
+
+    for index, boundary in enumerate(
+        DECISION_CONFIDENCE_BOUNDARIES
+    ):
+        if value < boundary:
+            return index
+
+    return len(DECISION_CONFIDENCE_BOUNDARIES)
+
+
+def parse_utc_timestamp(value):
+    """Parse a stored UTC ISO-8601 timestamp."""
+    if not value:
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(
+            str(value).replace("Z", "+00:00")
+        )
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
+
+
+def duplicate_prediction_reason(
+    previous,
+    prediction_result,
+    model_version,
+    current_time=None,
+):
+    """Explain why an equivalent prediction should be delayed."""
+    if previous is None:
+        return None
+
+    if previous.get("model_version") != model_version:
+        return None
+
+    if (
+        previous.get("predicted_class")
+        != prediction_result["predicted_class"]
+    ):
+        return None
+
+    previous_confidence = float(previous["confidence"])
+    current_confidence = float(prediction_result["confidence"])
+
+    if confidence_band(previous_confidence) != confidence_band(
+        current_confidence
+    ):
+        return None
+
+    if (
+        abs(current_confidence - previous_confidence)
+        >= SIGNIFICANT_CONFIDENCE_CHANGE
+    ):
+        return None
+
+    created_at = parse_utc_timestamp(previous.get("created_at"))
+
+    if created_at is None:
+        return None
+
+    now = current_time or datetime.now(timezone.utc)
+    age_seconds = (now - created_at).total_seconds()
+
+    if age_seconds < 0:
+        return None
+
+    if age_seconds >= DUPLICATE_PREDICTION_COOLDOWN_SECONDS:
+        return None
+
+    return (
+        "Equivalent prediction is inside the "
+        f"{DUPLICATE_PREDICTION_COOLDOWN_SECONDS}-second cooldown."
+    )
+
 def save_live_prediction(
     source_ip,
     events,
@@ -316,6 +426,33 @@ def classify_source(
         bundle=bundle,
         events=events,
     )
+
+    model_version = model_version_from_metadata(
+        bundle["metadata"]
+    )
+    previous_prediction = fetch_latest_prediction(source_ip)
+    cooldown_reason = duplicate_prediction_reason(
+        previous=previous_prediction,
+        prediction_result=prediction_result,
+        model_version=model_version,
+    )
+
+    if cooldown_reason is not None:
+        return {
+            "source_ip": source_ip,
+            "event_count": len(events),
+            "last_event_id": max(
+                int(event["event_id"])
+                for event in events
+            ),
+            "predicted_class": prediction_result[
+                "predicted_class"
+            ],
+            "confidence": prediction_result["confidence"],
+            "inserted": False,
+            "skipped": True,
+            "reason": cooldown_reason,
+        }
 
     database_result = save_live_prediction(
         source_ip=source_ip,
