@@ -61,6 +61,15 @@ def process_source(source, conn):
         return 0
 
     cursor = read_cursor(cursor_key)
+    file_size = os.path.getsize(log_path)
+
+    if cursor > file_size:
+        print(
+            f"{cursor_key} cursor reset after log rotation "
+            f"({cursor} > {file_size})"
+        )
+        cursor = 0
+
     new_events = 0
 
     with open(log_path, "r") as f:
