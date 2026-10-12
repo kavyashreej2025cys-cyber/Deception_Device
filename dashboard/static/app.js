@@ -6,10 +6,14 @@ const state = {
   refreshing: false,
   chartRows: [],
   refreshTimer: null,
+  alerts: [],
+  alertPage: 1,
+  alertPageSize: 5,
+  selectedDecoy: null,
+  selectedDecoyAction: null,
 };
 
 const elements = {
-  connectionStatus: document.querySelector("#connection-status"),
   connectionDot: document.querySelector("#connection-dot"),
   connectionText: document.querySelector("#connection-text"),
   refreshButton: document.querySelector("#refresh-button"),
@@ -34,6 +38,7 @@ const elements = {
     "#attackers-table-body"
   ),
   decoyList: document.querySelector("#decoy-list"),
+  decoyEventDetail: document.querySelector("#decoy-event-detail"),
   latestPrediction: document.querySelector(
     "#latest-prediction"
   ),
@@ -43,10 +48,28 @@ const elements = {
   eventsBody: document.querySelector("#events-table-body"),
   lifecycleList: document.querySelector("#lifecycle-list"),
   alertList: document.querySelector("#alert-list"),
+  overviewAlertList: document.querySelector("#overview-alert-list"),
+  alertSearch: document.querySelector("#alert-search"),
+  alertSeverity: document.querySelector("#alert-severity"),
+  alertStatus: document.querySelector("#alert-status"),
+  alertPrev: document.querySelector("#alert-prev"),
+  alertNext: document.querySelector("#alert-next"),
+  alertPageStatus: document.querySelector("#alert-page-status"),
+  navAlertCount: document.querySelector("#nav-alert-count"),
+  navApprovalCount: document.querySelector("#nav-approval-count"),
   eventLimit: document.querySelector("#event-limit"),
 
   chart: document.querySelector("#event-chart"),
   chartEmpty: document.querySelector("#chart-empty"),
+  attackerDialog: document.querySelector("#attacker-dialog"),
+  attackerDialogTitle: document.querySelector("#attacker-dialog-title"),
+  attackerDialogContent: document.querySelector("#attacker-dialog-content"),
+  confirmDialog: document.querySelector("#confirm-dialog"),
+  deactivateReason: document.querySelector("#deactivate-reason"),
+  decoyActionTitle: document.querySelector("#decoy-action-title"),
+  decoyActionDescription: document.querySelector("#decoy-action-description"),
+  decoyReasonLabel: document.querySelector("#decoy-reason-label"),
+  confirmDecoyAction: document.querySelector("#confirm-decoy-action"),
 };
 
 
@@ -282,6 +305,34 @@ async function fetchJson(path) {
 }
 
 
+async function postJson(path, payload) {
+  const response = await fetch(path, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "confirmed",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.message || result.error || `HTTP ${response.status}`);
+  }
+  return result;
+}
+
+
+function showToast(message, isError = false) {
+  const toast = document.createElement("div");
+  toast.className = `toast${isError ? " toast-error" : ""}`;
+  toast.textContent = message;
+  document.body.append(toast);
+  window.setTimeout(() => toast.remove(), 3600);
+}
+
+
 function setConnectionState(mode, message) {
   elements.connectionDot.className = (
     `status-dot status-dot-${mode}`
@@ -315,6 +366,11 @@ function renderSummary(summary) {
   ) || 0;
 
   elements.approvalBannerCount.textContent = approvalCount;
+  elements.navApprovalCount.textContent = approvalCount;
+  elements.navApprovalCount.classList.toggle("hidden", approvalCount === 0);
+  const openAlertCount = Number(summary.open_alerts) || 0;
+  elements.navAlertCount.textContent = openAlertCount;
+  elements.navAlertCount.classList.toggle("hidden", openAlertCount === 0);
   elements.approvalBanner.classList.toggle(
     "hidden",
     approvalCount === 0
@@ -322,76 +378,81 @@ function renderSummary(summary) {
 }
 
 function renderAlerts(alerts) {
-  const openAlerts = alerts.filter(
-    (alert) => String(alert.status).toLowerCase() === "open"
-  );
+  state.alerts = alerts;
+  const openAlerts = alerts.filter((alert) => (
+    String(alert.status).toLowerCase() === "open"
+  ));
 
   if (!openAlerts.length) {
+    elements.overviewAlertList.innerHTML = `<p class="empty-state">No open alerts. Your queue is clear.</p>`;
+  } else {
+    elements.overviewAlertList.innerHTML = openAlerts.slice(0, 3).map((alert) => `
+      <button class="compact-alert" data-open-view="alerts">
+        <i aria-hidden="true"></i>
+        <span><strong>${escapeHtml(alert.title || "Security alert")}</strong><small>${escapeHtml(alert.source_ip || "Unknown source")} · ${escapeHtml(formatShortTimestamp(alert.created_at))}</small></span>
+        ${badge(alert.severity, String(alert.severity || "medium").toLowerCase())}
+      </button>
+    `).join("");
+  }
+
+  renderAlertPage();
+}
+
+
+function renderAlertPage() {
+  const query = elements.alertSearch.value.trim().toLowerCase();
+  const severityFilter = elements.alertSeverity.value;
+  const statusFilter = elements.alertStatus.value;
+  const filtered = state.alerts.filter((alert) => {
+    const severity = String(alert.severity || "").toLowerCase();
+    const status = String(alert.status || "").toLowerCase();
+    const searchable = `${alert.title || ""} ${alert.message || ""} ${alert.source_ip || ""} ${alert.alert_type || ""}`.toLowerCase();
+    return (severityFilter === "all" || severity === severityFilter)
+      && (statusFilter === "all" || status === statusFilter)
+      && (!query || searchable.includes(query));
+  });
+  const pageCount = Math.max(1, Math.ceil(filtered.length / state.alertPageSize));
+  state.alertPage = Math.min(state.alertPage, pageCount);
+  const start = (state.alertPage - 1) * state.alertPageSize;
+  const pageRows = filtered.slice(start, start + state.alertPageSize);
+
+  if (!pageRows.length) {
     elements.alertList.innerHTML = `
       <div class="alert-empty">
         <span class="alert-empty-icon" aria-hidden="true">✓</span>
         <div>
-          <strong>No open security alerts</strong>
-          <p>The system has no unresolved alerts requiring review.</p>
+          <strong>No matching alerts</strong>
+          <p>Try changing the search or filters.</p>
         </div>
       </div>
     `;
-    return;
-  }
-
-  elements.alertList.innerHTML = openAlerts
+  } else {
+    elements.alertList.innerHTML = pageRows
     .map((alert) => {
       const severity = String(
         alert.severity || "medium"
       ).toLowerCase();
 
       return `
-        <article class="alert-item alert-item-${escapeHtml(severity)}">
+        <article class="alert-inbox-row alert-item-${escapeHtml(severity)}">
           <div class="alert-indicator" aria-hidden="true"></div>
-
           <div class="alert-content">
-            <div class="alert-heading">
-              <div>
-                <p class="alert-title">
-                  ${escapeHtml(alert.title || "Security alert")}
-                </p>
-                <p class="alert-type">
-                  ${escapeHtml(formatName(alert.alert_type))}
-                </p>
-              </div>
-
-              ${badge(alert.severity, severity)}
-            </div>
-
-            <p class="alert-message">
-              ${escapeHtml(alert.message || "No additional details")}
-            </p>
-
-            <div class="alert-meta">
-              <span>
-                Source:
-                <strong>${escapeHtml(alert.source_ip || "Unknown")}</strong>
-              </span>
-
-              <span>
-                Decision:
-                <strong>#${formatNumber(alert.related_decision_id)}</strong>
-              </span>
-
-              <span>
-                Prediction:
-                <strong>#${formatNumber(alert.related_prediction_id)}</strong>
-              </span>
-
-              <time datetime="${escapeHtml(alert.created_at)}">
-                ${escapeHtml(formatTimestamp(alert.created_at))}
-              </time>
-            </div>
+            <p class="alert-title">${escapeHtml(alert.title || "Security alert")}</p>
+            <p class="alert-type">${escapeHtml(formatName(alert.alert_type))}</p>
           </div>
+          <div class="alert-source"><small>Source</small><strong>${escapeHtml(alert.source_ip || "Unknown")}</strong></div>
+          <time datetime="${escapeHtml(alert.created_at)}">${escapeHtml(formatShortTimestamp(alert.created_at))}</time>
+          <div class="alert-row-badges">${badge(alert.severity, severity)}${badge(alert.status, statusStyle(alert.status))}</div>
+          <div class="alert-row-actions"><button class="button button-small" data-alert-details="${Number(alert.alert_id)}">Details</button>${String(alert.status).toLowerCase() !== "acknowledged" ? `<button class="button button-small" data-alert-action="acknowledged" data-alert-id="${Number(alert.alert_id)}">Acknowledge</button>` : ""}${String(alert.status).toLowerCase() !== "resolved" ? `<button class="button button-small" data-alert-action="resolved" data-alert-id="${Number(alert.alert_id)}">Resolve</button>` : ""}${String(alert.status).toLowerCase() !== "open" ? `<button class="button button-small" data-alert-action="open" data-alert-id="${Number(alert.alert_id)}">Reopen</button>` : ""}</div>
+          <div class="alert-expanded hidden" data-alert-panel="${Number(alert.alert_id)}"><p>${escapeHtml(alert.message || "No additional details")}</p><span>Decision #${formatNumber(alert.related_decision_id)} · Prediction #${formatNumber(alert.related_prediction_id)} · Created ${escapeHtml(formatTimestamp(alert.created_at))}</span></div>
         </article>
       `;
     })
     .join("");
+  }
+  elements.alertPageStatus.textContent = `${filtered.length} alerts · Page ${state.alertPage} of ${pageCount}`;
+  elements.alertPrev.disabled = state.alertPage <= 1;
+  elements.alertNext.disabled = state.alertPage >= pageCount;
 }
 
 
@@ -416,7 +477,7 @@ function renderAttackers(attackers) {
       const bucket = riskBucket(score);
 
       return `
-        <tr>
+        <tr class="attacker-row" data-attacker-id="${Number(attacker.attacker_id)}" tabindex="0" aria-label="View details for ${escapeHtml(attacker.source_ip)}">
           <td>
             <strong>${escapeHtml(attacker.source_ip)}</strong>
           </td>
@@ -470,7 +531,13 @@ function renderDecoys(decoys) {
           </p>
         </div>
 
-        ${badge(decoy.status, statusStyle(decoy.status))}
+        <div>
+          ${badge(decoy.status, statusStyle(decoy.status))}
+          <div class="decoy-actions">
+            <button class="button button-small" data-decoy-events="${escapeHtml(decoy.name)}">View activity</button>
+            ${String(decoy.status).toLowerCase() === "active" ? `<button class="button button-small button-danger" data-decoy-action="deactivate" data-decoy-key="${escapeHtml(decoy.name)}">Deactivate</button>` : `<button class="button button-small button-activate" data-decoy-action="activate" data-decoy-key="${escapeHtml(decoy.name)}">Activate</button>`}
+          </div>
+        </div>
       </div>
     `)
     .join("");
@@ -678,6 +745,45 @@ function renderLifecycle(events) {
 }
 
 
+async function showAttackerDetail(attackerId) {
+  elements.attackerDialogContent.innerHTML = `<p class="loading-cell">Loading attacker evidence…</p>`;
+  elements.attackerDialog.showModal();
+  try {
+    const report = await fetchJson(`/api/attackers/${attackerId}`);
+    const attacker = report.attacker;
+    elements.attackerDialogTitle.textContent = attacker.source_ip;
+    const serviceList = Object.entries(report.summary.services || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => `${formatName(name)} (${count})`).join(", ") || "None";
+    const recentRows = report.events.slice(0, 12).map((event) => `
+      <tr><td>${escapeHtml(formatShortTimestamp(event.timestamp))}</td><td>${badge(event.service, serviceStyle(event.service))}</td><td>${escapeHtml(formatName(event.event_type))}</td><td><span class="context-text">${escapeHtml(safeDetails(event.details))}</span></td></tr>
+    `).join("");
+    elements.attackerDialogContent.innerHTML = `
+      <div class="report-actions"><a class="button button-primary" href="/reports/attacker/${attackerId}" target="_blank" rel="noopener">Open analyst report</a><a class="button" href="/api/attackers/${attackerId}/report.json">Download JSON</a></div>
+      <div class="detail-grid"><div class="detail-stat"><span>Risk</span><strong>${Number(attacker.risk_score)}/100</strong></div><div class="detail-stat"><span>Primary pattern</span><strong>${escapeHtml(formatName(attacker.primary_attack_type))}</strong></div><div class="detail-stat"><span>Captured events</span><strong>${formatNumber(report.summary.event_count)}</strong></div><div class="detail-stat"><span>Decoy interactions</span><strong>${formatNumber(report.summary.decoy_interactions)}</strong></div></div>
+      <section class="detail-section"><h3>Observed behaviour</h3><p class="helper-note">Services targeted: ${escapeHtml(serviceList)}</p></section>
+      <section class="detail-section"><h3>Recent attack sequence</h3><div class="table-scroll"><table><thead><tr><th>Time</th><th>Service</th><th>Action</th><th>Evidence</th></tr></thead><tbody>${recentRows || `<tr><td colspan="4" class="empty-state">No events recorded.</td></tr>`}</tbody></table></div></section>
+    `;
+  } catch (error) {
+    elements.attackerDialogContent.innerHTML = `<p class="empty-state">Unable to load details: ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+
+async function showDecoyEvents(decoyKey) {
+  elements.decoyEventDetail.innerHTML = `<p class="loading-cell">Loading ${escapeHtml(formatName(decoyKey))} evidence…</p>`;
+  try {
+    const events = await fetchJson(`/api/decoys/${encodeURIComponent(decoyKey)}/events?limit=100`);
+    const sources = new Set(events.map((event) => event.source_ip).filter(Boolean));
+    const attempts = events.filter((event) => ["login_attempt", "query_attempt", "table_access", "camera_access"].includes(event.event_type)).length;
+    const rows = events.map((event) => `<tr><td>${escapeHtml(formatShortTimestamp(event.timestamp))}</td><td>${escapeHtml(event.source_ip || "Unknown")}</td><td>${escapeHtml(formatName(event.event_type))}</td><td><span class="context-text" title="${escapeHtml(safeDetails(event.details))}">${escapeHtml(safeDetails(event.details))}</span></td></tr>`).join("");
+    elements.decoyEventDetail.innerHTML = `<div class="evidence-summary"><div><span>Decoy</span><strong>${escapeHtml(formatName(decoyKey))}</strong></div><div><span>Interactions</span><strong>${events.length}</strong></div><div><span>Sources</span><strong>${sources.size}</strong></div><div><span>High-value actions</span><strong>${attempts}</strong></div></div><div class="table-scroll"><table><thead><tr><th>Time</th><th>Source</th><th>Action</th><th>Captured evidence</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="empty-state">No interactions recorded for this decoy.</td></tr>`}</tbody></table></div>`;
+  } catch (error) {
+    elements.decoyEventDetail.innerHTML = `<p class="empty-state">Unable to load decoy activity: ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+
 function drawChart(rows) {
   state.chartRows = rows;
 
@@ -748,8 +854,8 @@ function drawChart(rows) {
     ...values.flatMap((value) => Object.values(value))
   );
 
-  context.strokeStyle = "rgba(114, 136, 164, 0.20)";
-  context.fillStyle = "#7288a4";
+  context.strokeStyle = "rgba(97, 113, 138, 0.18)";
+  context.fillStyle = "#718096";
   context.font = "11px system-ui";
 
   const gridLines = 4;
@@ -778,10 +884,10 @@ function drawChart(rows) {
   }
 
   const services = [
-    ["ssh", "#53a7ff"],
-    ["web", "#35d49a"],
-    ["database", "#ffbe55"],
-    ["iot", "#ad8cff"],
+    ["ssh", "#2677dc"],
+    ["web", "#18a676"],
+    ["database", "#e4962d"],
+    ["iot", "#8d6bd3"],
   ];
 
   for (const [service, color] of services) {
@@ -821,7 +927,7 @@ function drawChart(rows) {
     const first = minutes[0].slice(11);
     const last = minutes[minutes.length - 1].slice(11);
 
-    context.fillStyle = "#7288a4";
+    context.fillStyle = "#718096";
     context.fillText(
       first,
       padding.left,
@@ -935,6 +1041,39 @@ function scheduleRefresh() {
 }
 
 
+const viewDetails = {
+  overview: ["Overview", "Live security overview"],
+  alerts: ["Alerts", "Security attention"],
+  activity: ["Activity", "Captured telemetry"],
+  attackers: ["Attackers", "Risk intelligence"],
+  decisions: ["AI decisions", "Adaptive response"],
+  decoys: ["Decoys", "Deception lifecycle"],
+};
+
+
+function openView(requestedView, updateHash = true) {
+  const view = viewDetails[requestedView] ? requestedView : "overview";
+  document.querySelectorAll(".app-view").forEach((section) => {
+    section.classList.toggle("active", section.dataset.view === view);
+  });
+  document.querySelectorAll("[data-view-link]").forEach((link) => {
+    link.classList.toggle("active", link.dataset.viewLink === view);
+  });
+  document.querySelector("#page-title").textContent = viewDetails[view][0];
+  document.querySelector("#page-kicker").textContent = viewDetails[view][1];
+  document.querySelector("#sidebar").classList.remove("open");
+  document.querySelector("#sidebar-backdrop").classList.add("hidden");
+  document.querySelector("#menu-button").setAttribute("aria-expanded", "false");
+  if (updateHash && window.location.hash !== `#${view}`) {
+    window.location.hash = view;
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (view === "activity") {
+    window.setTimeout(() => drawChart(state.chartRows), 80);
+  }
+}
+
+
 let resizeTimer = null;
 
 window.addEventListener(
@@ -962,6 +1101,137 @@ elements.eventLimit.addEventListener(
 );
 
 
+document.addEventListener("click", async (event) => {
+  const trigger = event.target.closest("[data-open-view], [data-view-link]");
+  if (trigger) {
+    event.preventDefault();
+    openView(trigger.dataset.openView || trigger.dataset.viewLink);
+    return;
+  }
+
+  const alertAction = event.target.closest("[data-alert-action]");
+  if (alertAction) {
+    alertAction.disabled = true;
+    try {
+      await postJson(`/api/alerts/${alertAction.dataset.alertId}/status`, {status: alertAction.dataset.alertAction});
+      showToast(`Alert marked ${alertAction.dataset.alertAction}.`);
+      await refreshDashboard();
+    } catch (error) {
+      showToast(`Alert update failed: ${error.message}`, true);
+      alertAction.disabled = false;
+    }
+    return;
+  }
+
+  const alertDetails = event.target.closest("[data-alert-details]");
+  if (alertDetails) {
+    const panel = document.querySelector(`[data-alert-panel="${alertDetails.dataset.alertDetails}"]`);
+    const opening = panel.classList.contains("hidden");
+    document.querySelectorAll("[data-alert-panel]").forEach((item) => item.classList.add("hidden"));
+    panel.classList.toggle("hidden", !opening);
+    alertDetails.textContent = opening ? "Hide" : "Details";
+    return;
+  }
+
+  const attackerRow = event.target.closest("[data-attacker-id]");
+  if (attackerRow) {
+    showAttackerDetail(attackerRow.dataset.attackerId);
+    return;
+  }
+
+  const decoyEvents = event.target.closest("[data-decoy-events]");
+  if (decoyEvents) {
+    showDecoyEvents(decoyEvents.dataset.decoyEvents);
+    return;
+  }
+
+  const decoyAction = event.target.closest("[data-decoy-action]");
+  if (decoyAction) {
+    state.selectedDecoy = decoyAction.dataset.decoyKey;
+    state.selectedDecoyAction = decoyAction.dataset.decoyAction;
+    elements.deactivateReason.value = "";
+    const activating = state.selectedDecoyAction === "activate";
+    elements.decoyActionTitle.textContent = activating ? "Activate decoy?" : "Deactivate decoy?";
+    elements.decoyActionDescription.textContent = activating
+      ? "This starts the decoy through the guarded orchestrator and records the action in lifecycle history."
+      : "This stops the decoy container, preserves its logs and records the action in lifecycle history.";
+    elements.decoyReasonLabel.classList.toggle("hidden", activating);
+    elements.confirmDecoyAction.textContent = activating ? "Activate decoy" : "Deactivate decoy";
+    elements.confirmDecoyAction.classList.toggle("button-danger", !activating);
+    elements.confirmDecoyAction.classList.toggle("button-activate", activating);
+    elements.confirmDialog.showModal();
+  }
+});
+
+
+document.addEventListener("keydown", (event) => {
+  const row = event.target.closest("[data-attacker-id]");
+  if (row && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    showAttackerDetail(row.dataset.attackerId);
+  }
+});
+
+
+elements.alertSearch.addEventListener("input", () => {
+  state.alertPage = 1;
+  renderAlertPage();
+});
+elements.alertSeverity.addEventListener("change", () => {
+  state.alertPage = 1;
+  renderAlertPage();
+});
+elements.alertStatus.addEventListener("change", () => {
+  state.alertPage = 1;
+  renderAlertPage();
+});
+elements.alertPrev.addEventListener("click", () => {
+  state.alertPage = Math.max(1, state.alertPage - 1);
+  renderAlertPage();
+});
+elements.alertNext.addEventListener("click", () => {
+  state.alertPage += 1;
+  renderAlertPage();
+});
+
+
+document.querySelector("#menu-button").addEventListener("click", () => {
+  const sidebar = document.querySelector("#sidebar");
+  const isOpen = sidebar.classList.toggle("open");
+  document.querySelector("#sidebar-backdrop").classList.toggle("hidden", !isOpen);
+  document.querySelector("#menu-button").setAttribute("aria-expanded", String(isOpen));
+});
+document.querySelector("#sidebar-backdrop").addEventListener("click", () => openView((window.location.hash || "#overview").slice(1), false));
+window.addEventListener("hashchange", () => openView(window.location.hash.slice(1), false));
+document.querySelector("#attacker-dialog-close").addEventListener("click", () => elements.attackerDialog.close());
+elements.confirmDecoyAction.addEventListener("click", async (event) => {
+  event.preventDefault();
+  if (!state.selectedDecoy || !state.selectedDecoyAction) return;
+  const button = event.currentTarget;
+  const action = state.selectedDecoyAction;
+  button.disabled = true;
+  button.textContent = action === "activate" ? "Activating…" : "Deactivating…";
+  try {
+    await postJson(`/api/decoys/${encodeURIComponent(state.selectedDecoy)}/${action}`, {
+      confirm: state.selectedDecoy,
+      reason: elements.deactivateReason.value.trim() || "Manual dashboard deactivation",
+    });
+    elements.confirmDialog.close();
+    showToast(action === "activate"
+      ? `${formatName(state.selectedDecoy)} was activated successfully.`
+      : `${formatName(state.selectedDecoy)} was deactivated. Logs were preserved.`);
+    state.selectedDecoy = null;
+    state.selectedDecoyAction = null;
+    await refreshDashboard();
+  } catch (error) {
+    showToast(`${formatName(action)} failed: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = action === "activate" ? "Activate decoy" : "Deactivate decoy";
+  }
+});
+
+
 document.addEventListener(
   "visibilitychange",
   () => {
@@ -972,5 +1242,6 @@ document.addEventListener(
 );
 
 
+openView(window.location.hash.slice(1), false);
 refreshDashboard();
 scheduleRefresh();

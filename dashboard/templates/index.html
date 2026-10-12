@@ -2,383 +2,97 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
-  <meta
-    name="description"
-    content="Cyber Deception System security operations dashboard"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cyber Deception System security operations dashboard">
   <title>Cyber Deception Control Center</title>
-  <link
-    rel="stylesheet"
-    href="/static/styles.css"
-  >
+  <link rel="stylesheet" href="/static/styles.css?v=4">
 </head>
-
 <body>
-  <a class="skip-link" href="#main-content">
-    Skip to dashboard content
-  </a>
+  <a class="skip-link" href="#main-content">Skip to dashboard content</a>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar" aria-label="Main navigation">
+      <a class="brand" href="#overview" data-view-link="overview">
+        <span class="brand-mark" aria-hidden="true">CD</span>
+        <span><small>NovaTech Security</small><strong>Deception Center</strong></span>
+      </a>
+      <nav class="side-nav">
+        <p>Workspace</p>
+        <a href="#overview" data-view-link="overview" class="active"><span>⌂</span>Overview</a>
+        <a href="#alerts" data-view-link="alerts"><span>!</span>Alerts <b id="nav-alert-count">0</b></a>
+        <a href="#activity" data-view-link="activity"><span>↗</span>Activity</a>
+        <a href="#attackers" data-view-link="attackers"><span>IP</span>Attackers</a>
+        <p>Response</p>
+        <a href="#decisions" data-view-link="decisions"><span>AI</span>AI decisions <b id="nav-approval-count">0</b></a>
+        <a href="#decoys" data-view-link="decoys"><span>DC</span>Decoys</a>
+      </nav>
+      <div class="sidebar-status"><div><span id="connection-dot" class="status-dot status-dot-pending"></span><strong id="connection-text">Connecting…</strong></div><small>Guarded operations console</small></div>
+    </aside>
 
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark" aria-hidden="true">CD</div>
+    <div class="workspace">
+      <header class="topbar">
+        <button id="menu-button" class="icon-button menu-button" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+        <div class="page-identity"><p id="page-kicker">Live security overview</p><h1 id="page-title">Overview</h1></div>
+        <div class="topbar-actions"><span class="refresh-time">Updated <strong id="last-updated-value">Not yet</strong></span><button id="refresh-button" class="button button-primary" type="button">↻ <span>Refresh</span></button></div>
+      </header>
 
-      <div>
-        <p class="eyebrow">NovaTech Security</p>
-        <h1>Cyber Deception Control Center</h1>
-      </div>
+      <main id="main-content" class="main-content">
+        <section id="error-banner" class="banner banner-error hidden" role="alert"><strong>Dashboard data is unavailable.</strong> <span id="error-message">The next refresh will retry.</span></section>
+
+        <section class="app-view active" data-view="overview" aria-labelledby="overview-heading">
+          <div class="welcome-row"><div><p class="eyebrow">Live protection</p><h2 id="overview-heading">Good morning, operator</h2><p>Here is what your deception environment needs you to know.</p></div><div class="live-pill"><i></i>Monitoring continuously</div></div>
+          <div class="summary-grid">
+            <button class="metric-card metric-red" data-open-view="alerts"><span class="metric-icon">!</span><span><small>Open alerts</small><strong id="summary-alerts">—</strong><em>Review security findings</em></span><i>›</i></button>
+            <button class="metric-card metric-amber" data-open-view="decisions"><span class="metric-icon">AI</span><span><small>Pending approvals</small><strong id="summary-approvals">—</strong><em>Actions waiting for review</em></span><i>›</i></button>
+            <button class="metric-card metric-green" data-open-view="decoys"><span class="metric-icon">DC</span><span><small>Active decoys</small><strong id="summary-decoys">—</strong><em>Adaptive services deployed</em></span><i>›</i></button>
+            <button class="metric-card metric-blue" data-open-view="activity"><span class="metric-icon">EV</span><span><small>Captured events</small><strong id="summary-events">—</strong><em>Across all honeypots</em></span><i>›</i></button>
+          </div>
+          <span id="summary-attackers" class="hidden">—</span><span id="summary-predictions" class="hidden">—</span>
+          <section id="approval-banner" class="banner banner-warning hidden"><div><strong>Operator review required</strong><p><span id="approval-banner-count">0</span> adaptive response recommendations are waiting.</p></div><button class="button button-warning" data-open-view="decisions">Review decisions</button></section>
+          <div class="overview-grid">
+            <article class="panel panel-priority"><div class="panel-header"><div><p class="eyebrow">Priority queue</p><h3>Latest open alerts</h3></div><button class="text-button" data-open-view="alerts">View all →</button></div><div id="overview-alert-list" class="compact-alerts"><p class="loading-cell">Loading alerts…</p></div></article>
+            <article class="panel"><div class="panel-header"><div><p class="eyebrow">Latest assessment</p><h3>AI prediction</h3></div><span class="read-only-badge">Live model</span></div><div id="latest-prediction" class="prediction-card"><p class="loading-cell">Loading prediction…</p></div><p class="helper-note">Confidence is model certainty, not attack severity.</p></article>
+          </div>
+          <article class="panel system-flow"><div class="panel-header"><div><p class="eyebrow">Simple explanation</p><h3>How your system protects the network</h3></div></div><ol><li><b>1</b><span><strong>Capture</strong><small>Honeypots record suspicious interactions.</small></span></li><li><b>2</b><span><strong>Understand</strong><small>AI classifies behaviour and calculates risk.</small></span></li><li><b>3</b><span><strong>Respond</strong><small>A safe decoy action is recommended or activated.</small></span></li></ol></article>
+        </section>
+
+        <section class="app-view" data-view="alerts" aria-labelledby="alerts-heading">
+          <div class="view-heading"><div><p class="eyebrow">Security attention</p><h2 id="alerts-heading">Alerts</h2><p>Review findings that require attention without searching through raw logs.</p></div><span class="read-only-badge">Read only</span></div>
+          <article class="panel"><div class="toolbar"><label class="search-box">⌕ <input id="alert-search" type="search" placeholder="Search alerts or source IP"></label><label>Severity <select id="alert-severity"><option value="all">All</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label><label>Status <select id="alert-status"><option value="open">Open</option><option value="all">All</option><option value="acknowledged">Acknowledged</option><option value="resolved">Resolved</option></select></label></div><div id="alert-list" class="alert-list"><p class="loading-cell">Loading security alerts…</p></div><div class="pagination"><button id="alert-prev" class="button" type="button">← Previous</button><span id="alert-page-status">Page 1</span><button id="alert-next" class="button" type="button">Next →</button></div></article>
+        </section>
+
+        <section class="app-view" data-view="activity" aria-labelledby="activity-heading">
+          <div class="view-heading"><div><p class="eyebrow">Live telemetry</p><h2 id="activity-heading">Activity</h2><p>Understand what is happening across SSH, web, database and IoT services.</p></div></div>
+          <article class="panel chart-panel"><div class="panel-header"><div><h3>Events by service</h3><p>Recent activity trend</p></div><div class="chart-legend"><span><i class="legend-ssh"></i>SSH</span><span><i class="legend-web"></i>Web</span><span><i class="legend-database"></i>Database</span><span><i class="legend-iot"></i>IoT</span></div></div><div class="chart-container"><canvas id="event-chart"></canvas><p id="chart-empty" class="empty-state hidden">No event-series data is available yet.</p></div></article>
+          <article class="panel"><div class="panel-header"><div><h3>Recent events</h3><p>Newest evidence appears first</p></div><label>Rows <select id="event-limit"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select></label></div><div class="table-scroll"><table><thead><tr><th>Time</th><th>Source IP</th><th>Service</th><th>Event</th><th>Context</th></tr></thead><tbody id="events-table-body"><tr><td colspan="5" class="loading-cell">Loading events…</td></tr></tbody></table></div></article>
+        </section>
+
+        <section class="app-view" data-view="attackers" aria-labelledby="attackers-heading">
+          <div class="view-heading"><div><p class="eyebrow">Risk intelligence</p><h2 id="attackers-heading">Attackers</h2><p>See observed sources, their risk and their primary attack pattern.</p></div></div>
+          <article class="panel"><div class="panel-header"><div><h3>Attacker profiles</h3><p>Highest risk sources appear first</p></div><span class="read-only-badge">Risk scored</span></div><div class="table-scroll"><table><thead><tr><th>Source IP</th><th>Risk score</th><th>Primary pattern</th><th>Last seen</th></tr></thead><tbody id="attackers-table-body"><tr><td colspan="4" class="loading-cell">Loading profiles…</td></tr></tbody></table></div></article>
+        </section>
+
+        <section class="app-view" data-view="decisions" aria-labelledby="decisions-heading">
+          <div class="view-heading"><div><p class="eyebrow">AI decision support</p><h2 id="decisions-heading">Decisions</h2><p>Follow every classification, recommendation and guarded execution result.</p></div><span class="read-only-badge">Execution guarded</span></div>
+          <article class="panel"><div class="panel-header"><div><h3>Decision queue</h3><p>Recommendations and their current status</p></div></div><div class="table-scroll"><table><thead><tr><th>ID</th><th>Source</th><th>Classification</th><th>Confidence</th><th>Risk</th><th>Recommendation</th><th>Decoy</th><th>Status</th></tr></thead><tbody id="decisions-table-body"><tr><td colspan="8" class="loading-cell">Loading decisions…</td></tr></tbody></table></div></article>
+        </section>
+
+        <section class="app-view" data-view="decoys" aria-labelledby="decoys-heading">
+          <div class="view-heading"><div><p class="eyebrow">Adaptive response</p><h2 id="decoys-heading">Decoys</h2><p>Monitor deployed decoys and review their complete lifecycle history.</p></div></div>
+          <div class="decoy-layout"><article class="panel"><div class="panel-header"><div><h3>Deployed decoys</h3><p>Current container state and manual controls</p></div></div><div id="decoy-list" class="decoy-list"><p class="loading-cell">Loading decoys…</p></div></article><article class="panel info-card"><span>i</span><div><h3>What is a decoy?</h3><p>A decoy is a realistic fake service designed to attract suspicious activity, collect evidence and keep attackers away from real assets.</p></div></article></div>
+          <article class="panel decoy-evidence-panel"><div class="panel-header"><div><h3>Decoy interaction evidence</h3><p>Select “View activity” on a decoy to inspect commands, queries, credentials and attack sequence.</p></div></div><div id="decoy-event-detail" class="empty-state">Select a decoy to review its captured activity.</div></article>
+          <article class="panel"><div class="panel-header"><div><h3>Lifecycle history</h3><p>Auditable activation and deactivation records</p></div><span class="read-only-badge">Audit trail</span></div><ol id="lifecycle-list" class="timeline"><li class="loading-cell">Loading history…</li></ol></article>
+        </section>
+      </main>
     </div>
-
-    <div class="topbar-actions">
-      <div
-        id="connection-status"
-        class="connection-status"
-        role="status"
-        aria-live="polite"
-      >
-        <span
-          id="connection-dot"
-          class="status-dot status-dot-pending"
-          aria-hidden="true"
-        ></span>
-        <span id="connection-text">Connecting…</span>
-      </div>
-
-      <button
-        id="refresh-button"
-        class="button button-secondary"
-        type="button"
-      >
-        Refresh now
-      </button>
-    </div>
-  </header>
-
-  <main id="main-content" class="dashboard">
-    <section
-      id="error-banner"
-      class="banner banner-error hidden"
-      role="alert"
-    >
-      <strong>Dashboard data is temporarily unavailable.</strong>
-      <span id="error-message">
-        The next automatic refresh will retry.
-      </span>
-    </section>
-
-    <section
-      id="approval-banner"
-      class="banner banner-warning hidden"
-      aria-live="polite"
-    >
-      <div>
-        <strong>Operator approval required</strong>
-        <p>
-          One or more adaptive decoys have been recommended.
-          Review them below before taking action.
-        </p>
-      </div>
-
-      <span
-        id="approval-banner-count"
-        class="banner-count"
-      >
-        0
-      </span>
-    </section>
-
-    <section class="page-intro" aria-labelledby="overview-title">
-      <div>
-        <p class="eyebrow">Live security overview</p>
-        <h2 id="overview-title">
-          What is happening right now
-        </h2>
-        <p class="intro-copy">
-          Monitor attacker activity, risk, AI classifications,
-          and adaptive deception decisions from one read-only view.
-        </p>
-      </div>
-
-      <div class="last-updated">
-        <span>Last refreshed</span>
-        <strong id="last-updated-value">Not yet</strong>
-      </div>
-    </section>
-
-    <section
-      class="summary-grid"
-      aria-label="Security summary"
-    >
-      <article class="summary-card">
-        <div class="summary-icon summary-icon-blue" aria-hidden="true">
-          EV
-        </div>
-        <div>
-          <p class="summary-label">Captured events</p>
-          <p id="summary-events" class="summary-value">—</p>
-          <p class="summary-help">Normalized across all honeypots</p>
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <div class="summary-icon summary-icon-red" aria-hidden="true">
-          IP
-        </div>
-        <div>
-          <p class="summary-label">Observed sources</p>
-          <p id="summary-attackers" class="summary-value">—</p>
-          <p class="summary-help">External IP profiles</p>
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <div class="summary-icon summary-icon-green" aria-hidden="true">
-          DC
-        </div>
-        <div>
-          <p class="summary-label">Active adaptive decoys</p>
-          <p id="summary-decoys" class="summary-value">—</p>
-          <p class="summary-help">Currently deployed</p>
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <div class="summary-icon summary-icon-amber" aria-hidden="true">
-          AP
-        </div>
-        <div>
-          <p class="summary-label">Pending approvals</p>
-          <p id="summary-approvals" class="summary-value">—</p>
-          <p class="summary-help">Manual action required</p>
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <div class="summary-icon summary-icon-purple" aria-hidden="true">
-          AI
-        </div>
-        <div>
-          <p class="summary-label">AI predictions</p>
-          <p id="summary-predictions" class="summary-value">—</p>
-          <p class="summary-help">Contextual classifications</p>
-        </div>
-      </article>
-      <article class="summary-card">
-        <div class="summary-icon summary-icon-red" aria-hidden="true">
-          AL
-        </div>
-        <div>
-          <p class="summary-label">Open alerts</p>
-          <p id="summary-alerts" class="summary-value">—</p>
-          <p class="summary-help">Security review required</p>
-        </div>
-      </article>
-    </section>
-    <section class="panel alerts-panel" aria-labelledby="alerts-title">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Security attention</p>
-          <h2 id="alerts-title">Open alerts</h2>
-        </div>
-
-        <span class="read-only-badge">Read only</span>
-      </div>
-
-      <div id="alert-list" class="alert-list" aria-live="polite">
-        <p class="loading-cell">Loading security alerts…</p>
-      </div>
-    </section>
-    <section class="content-grid content-grid-wide">
-      <article class="panel chart-panel">
-        <div class="panel-header">
-          <div>
-            <p class="eyebrow">Activity trend</p>
-            <h2>Events by service</h2>
-          </div>
-
-          <div class="chart-legend" aria-label="Chart legend">
-            <span><i class="legend-dot legend-ssh"></i>SSH</span>
-            <span><i class="legend-dot legend-web"></i>Web</span>
-            <span><i class="legend-dot legend-database"></i>Database</span>
-            <span><i class="legend-dot legend-iot"></i>IoT</span>
-          </div>
-        </div>
-
-        <div class="chart-container">
-          <canvas
-            id="event-chart"
-            role="img"
-            aria-label="Event activity by service over time"
-          ></canvas>
-
-          <p id="chart-empty" class="empty-state hidden">
-            No event-series data is available yet.
-          </p>
-        </div>
-      </article>
-
-      <article class="panel">
-        <div class="panel-header">
-          <div>
-            <p class="eyebrow">Risk overview</p>
-            <h2>Attacker profiles</h2>
-          </div>
-
-          <span class="read-only-badge">Read only</span>
-        </div>
-
-        <div class="table-scroll">
-          <table class="attackers-table">
-            <thead>
-              <tr>
-                <th scope="col">Source IP</th>
-                <th scope="col">Risk</th>
-                <th scope="col">Primary pattern</th>
-                <th scope="col">Last seen</th>
-              </tr>
-            </thead>
-            <tbody id="attackers-table-body">
-              <tr>
-                <td colspan="4" class="loading-cell">
-                  Loading attacker profiles…
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-    </section>
-
-    <section class="content-grid">
-      <article class="panel">
-        <div class="panel-header">
-          <div>
-            <p class="eyebrow">Adaptive layer</p>
-            <h2>Deployed decoys</h2>
-          </div>
-        </div>
-
-        <div id="decoy-list" class="decoy-list">
-          <p class="loading-cell">Loading adaptive decoys…</p>
-        </div>
-      </article>
-
-      <article class="panel">
-        <div class="panel-header">
-          <div>
-            <p class="eyebrow">Decision support</p>
-            <h2>Latest AI prediction</h2>
-          </div>
-        </div>
-
-        <div id="latest-prediction" class="prediction-card">
-          <p class="loading-cell">Loading prediction…</p>
-        </div>
-      </article>
-    </section>
-
-    <section class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Adaptive recommendations</p>
-          <h2>Decision queue</h2>
-        </div>
-
-        <p class="panel-note">
-          Docker actions require command-line approval.
-        </p>
-      </div>
-
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Decision</th>
-              <th scope="col">Source</th>
-              <th scope="col">Classification</th>
-              <th scope="col">Confidence</th>
-              <th scope="col">Risk</th>
-              <th scope="col">Recommendation</th>
-              <th scope="col">Decoy</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody id="decisions-table-body">
-            <tr>
-              <td colspan="8" class="loading-cell">
-                Loading adaptive decisions…
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Telemetry</p>
-          <h2>Recent security events</h2>
-        </div>
-
-        <label class="select-label">
-          Show
-          <select id="event-limit">
-            <option value="20">20 events</option>
-            <option value="50" selected>50 events</option>
-            <option value="100">100 events</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Time</th>
-              <th scope="col">Source IP</th>
-              <th scope="col">Service</th>
-              <th scope="col">Event</th>
-              <th scope="col">Context</th>
-            </tr>
-          </thead>
-          <tbody id="events-table-body">
-            <tr>
-              <td colspan="5" class="loading-cell">
-                Loading recent events…
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Audit trail</p>
-          <h2>Decoy lifecycle</h2>
-        </div>
-      </div>
-
-      <ol id="lifecycle-list" class="timeline">
-        <li class="loading-cell">Loading lifecycle history…</li>
-      </ol>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <p>
-      Cyber Deception System · Read-only operations dashboard
-    </p>
-    <p>
-      Automatic refresh every 5 seconds
-    </p>
-  </footer>
-
-  <script src="/static/app.js" defer></script>
+  </div>
+  <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
+  <dialog id="attacker-dialog" class="detail-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Investigation detail</p><h2 id="attacker-dialog-title">Attacker profile</h2></div><button id="attacker-dialog-close" class="icon-button" type="button" aria-label="Close">×</button></div>
+    <div id="attacker-dialog-content"><p class="loading-cell">Loading attacker evidence…</p></div>
+  </dialog>
+  <dialog id="confirm-dialog" class="confirm-dialog">
+    <form method="dialog"><h2 id="decoy-action-title">Change decoy state?</h2><p id="decoy-action-description">Confirm this guarded lifecycle action.</p><label id="decoy-reason-label">Reason<textarea id="deactivate-reason" rows="3" placeholder="Why is this decoy being stopped?"></textarea></label><div class="dialog-actions"><button class="button" value="cancel">Cancel</button><button id="confirm-decoy-action" class="button button-danger" value="confirm">Confirm</button></div></form>
+  </dialog>
+  <script src="/static/app.js?v=5" defer></script>
 </body>
 </html>
