@@ -44,6 +44,39 @@ DECOY_IMPLEMENTATIONS = {
             / "docker-compose.yml"
         ),
     },
+    "ssh_admin_server": {
+        "type": "adaptive_ssh",
+        "container_name": "adaptive-ssh-admin",
+        "compose_file": (
+            PROJECT_ROOT
+            / "adaptive"
+            / "decoys"
+            / "ssh_admin_server"
+            / "docker-compose.yml"
+        ),
+    },
+    "service_discovery": {
+        "type": "adaptive_web",
+        "container_name": "adaptive-service-discovery",
+        "compose_file": (
+            PROJECT_ROOT
+            / "adaptive"
+            / "decoys"
+            / "service_discovery"
+            / "docker-compose.yml"
+        ),
+    },
+    "layered_enterprise": {
+        "type": "adaptive_multi_service",
+        "container_name": "adaptive-layered-enterprise-web",
+        "compose_file": (
+            PROJECT_ROOT
+            / "adaptive"
+            / "decoys"
+            / "layered_enterprise"
+            / "docker-compose.yml"
+        ),
+    },
 }
 
 HEALTH_TIMEOUT_SECONDS = 30
@@ -408,6 +441,7 @@ def parse_arguments():
 def main():
     """Validate, preview, and optionally activate one decoy."""
     args = parse_arguments()
+    activation_attempted = False
 
     try:
         decision = fetch_decision(args.decision_id)
@@ -455,6 +489,7 @@ def main():
             )
             return
 
+        activation_attempted = True
         compose_result = run_compose_activation(
             implementation["compose_file"]
         )
@@ -493,7 +528,7 @@ def main():
         KeyError,
         TypeError,
     ) as error:
-        if args.approve:
+        if args.approve and activation_attempted:
             try:
                 record_failure(args.decision_id)
             except Exception:

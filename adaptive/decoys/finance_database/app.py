@@ -15,7 +15,7 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
-DECOY_KEY = "finance_database"
+DECOY_KEY = os.environ.get("DECOY_KEY", "finance_database")
 
 LOG_FILE = os.path.join(
     os.path.dirname(__file__),

@@ -5,7 +5,10 @@
       "name": "Adaptive SSH Administration Server",
       "target_class": "BRUTE_FORCE",
       "description": "A higher-interaction SSH decoy presenting administrative files, commands, and credentials.",
-      "implementation_status": "planned"
+      "implementation_status": "deployed",
+      "deployment_status": "deployed",
+      "container_name": "adaptive-ssh-admin",
+      "port": 2224
     },
     "finance_database": {
       "name": "Adaptive Finance Database",
@@ -25,13 +28,24 @@
       "name": "Adaptive Service Discovery Surface",
       "target_class": "RECONNAISSANCE",
       "description": "A broader low-interaction service surface intended to attract and measure reconnaissance behavior.",
-      "implementation_status": "planned"
+      "implementation_status": "deployed",
+      "deployment_status": "deployed",
+      "container_name": "adaptive-service-discovery",
+      "port": 15000
     },
     "layered_enterprise": {
       "name": "Adaptive Layered Enterprise Environment",
       "target_class": "MULTI_SERVICE_PROBE",
       "description": "A coordinated multi-service decoy environment for attackers interacting across several service types.",
-      "implementation_status": "planned"
+      "implementation_status": "deployed",
+      "deployment_status": "deployed",
+      "container_name": "adaptive-layered-enterprise-web",
+      "port": 16000,
+      "ports": {
+        "web": 16000,
+        "ssh": 2226,
+        "database": 16432
+      }
     }
   },
   "class_to_decoy": {
@@ -40,5 +54,6 @@
     "IOT_PROBING": "camera_management",
     "RECONNAISSANCE": "service_discovery",
     "MULTI_SERVICE_PROBE": "layered_enterprise"
-  }
+  },
+  "version": "1.5.0"
 }

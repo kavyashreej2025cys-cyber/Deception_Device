@@ -64,4 +64,61 @@ HONEYPOT_SOURCES = [
         ),
         "format": "custom",
     },
+    {
+        "service": "ssh",
+        "cursor_key": "ssh_admin_server",
+        "log_path": os.path.join(
+            BASE_DIR,
+            "adaptive",
+            "decoys",
+            "ssh_admin_server",
+            "logs",
+            "cowrie.json",
+        ),
+        "format": "cowrie",
+    },
+
+    {
+        "service": "web",
+        "cursor_key": "service_discovery",
+        "log_path": os.path.join(
+            BASE_DIR,
+            "adaptive",
+            "decoys",
+            "service_discovery",
+            "logs",
+            "discovery_events.json",
+        ),
+        "format": "custom",
+    },
+    {
+        "service": "web",
+        "cursor_key": "layered_enterprise_web",
+        "decoy_key": "layered_enterprise",
+        "log_path": os.path.join(
+            BASE_DIR, "adaptive", "decoys", "layered_enterprise",
+            "logs", "web", "discovery_events.json",
+        ),
+        "format": "custom",
+    },
+    {
+        "service": "database",
+        "cursor_key": "layered_enterprise_database",
+        "decoy_key": "layered_enterprise",
+        "log_path": os.path.join(
+            BASE_DIR, "adaptive", "decoys", "layered_enterprise",
+            "logs", "database", "finance_events.json",
+        ),
+        "format": "custom",
+    },
+    {
+        "service": "ssh",
+        "cursor_key": "layered_enterprise_ssh",
+        "decoy_key": "layered_enterprise",
+        "log_path": os.path.join(
+            BASE_DIR, "adaptive", "decoys", "layered_enterprise",
+            "logs", "ssh", "cowrie.json",
+        ),
+        "format": "cowrie",
+    },
 ]

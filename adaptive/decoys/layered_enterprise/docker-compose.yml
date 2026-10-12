@@ -1,0 +1,95 @@
+services:
+  layered-database:
+    build:
+      context: ../finance_database
+    container_name: adaptive-layered-enterprise-db
+    restart: unless-stopped
+    environment:
+      DECOY_KEY: layered_enterprise
+    ports:
+      - "16432:15432"
+    volumes:
+      - ./logs/database:/app/logs
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:15432/health', timeout=2)"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  layered-ssh:
+    image: cowrie/cowrie:latest
+    container_name: adaptive-layered-enterprise-ssh
+    restart: unless-stopped
+    ports:
+      - "2226:2222"
+    volumes:
+      - ./cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg:ro
+      - ./logs/ssh:/cowrie/cowrie-git/var/log/cowrie
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.75
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "assert any(line.split()[1].endswith(':08AE') and line.split()[3] == '0A' for line in open('/proc/net/tcp').read().splitlines()[1:])"
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  layered-web:
+    build:
+      context: ../service_discovery
+    container_name: adaptive-layered-enterprise-web
+    restart: unless-stopped
+    environment:
+      DECOY_KEY: layered_enterprise
+    ports:
+      - "16000:15000"
+    volumes:
+      - ./logs/web:/app/logs
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    depends_on:
+      layered-database:
+        condition: service_healthy
+      layered-ssh:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:15000/health', timeout=2)"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

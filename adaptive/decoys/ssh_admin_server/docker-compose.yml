@@ -1,0 +1,28 @@
+services:
+  ssh-admin-server:
+    image: cowrie/cowrie:latest
+    container_name: adaptive-ssh-admin
+    restart: unless-stopped
+    ports:
+      - "2224:2222"
+    volumes:
+      - ./cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg:ro
+      - ./logs:/cowrie/cowrie-git/var/log/cowrie
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.75
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "assert any(line.split()[1].endswith(':08AE') and line.split()[3] == '0A' for line in open('/proc/net/tcp').read().splitlines()[1:])"
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s

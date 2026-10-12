@@ -79,6 +79,14 @@ def process_source(source, conn):
             else:
                 norm = normalize_custom(raw)
 
+            source_decoy_key = source.get("decoy_key")
+            if source_decoy_key:
+                details = json.loads(norm["details"] or "{}")
+                if not isinstance(details, dict):
+                    details = {"raw": details}
+                details["decoy_key"] = source_decoy_key
+                norm["details"] = json.dumps(details)
+
             conn.execute(
                 "INSERT INTO events (timestamp, source_ip, destination_ip, service, event_type, protocol, details) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
