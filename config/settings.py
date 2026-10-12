@@ -51,4 +51,17 @@ HONEYPOT_SOURCES = [
         ),
         "format": "custom",
     },
+    {
+        "service": "iot",
+        "cursor_key": "camera_management",
+        "log_path": os.path.join(
+            BASE_DIR,
+            "adaptive",
+            "decoys",
+            "camera_management",
+            "logs",
+            "camera_events.json",
+        ),
+        "format": "custom",
+    },
 ]

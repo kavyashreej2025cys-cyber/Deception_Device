@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.0.0",
+  "catalog_version": "1.1.0",
   "decoys": {
     "ssh_admin_server": {
       "name": "Adaptive SSH Administration Server",
@@ -11,13 +11,15 @@
       "name": "Adaptive Finance Database",
       "target_class": "DATABASE_PROBING",
       "description": "A targeted database decoy exposing realistic finance tables, invoices, payroll records, and query responses.",
-      "implementation_status": "planned"
+      "implementation_status": "deployed"
     },
     "camera_management": {
       "name": "Adaptive Camera Management Network",
       "target_class": "IOT_PROBING",
       "description": "A targeted CCTV and IoT management decoy with additional cameras, configuration endpoints, and fake firmware metadata.",
-      "implementation_status": "planned"
+      "implementation_status": "deployed",
+      "port": 18080,
+      "container_name": "adaptive-camera-management"
     },
     "service_discovery": {
       "name": "Adaptive Service Discovery Surface",

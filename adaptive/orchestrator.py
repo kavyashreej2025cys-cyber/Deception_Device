@@ -33,6 +33,17 @@ DECOY_IMPLEMENTATIONS = {
             / "docker-compose.yml"
         ),
     },
+    "camera_management": {
+        "type": "adaptive_iot",
+        "container_name": "adaptive-camera-management",
+        "compose_file": (
+            PROJECT_ROOT
+            / "adaptive"
+            / "decoys"
+            / "camera_management"
+            / "docker-compose.yml"
+        ),
+    },
 }
 
 HEALTH_TIMEOUT_SECONDS = 30
