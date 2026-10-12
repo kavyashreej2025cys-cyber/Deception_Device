@@ -550,21 +550,15 @@ def update_alert_status(alert_id):
     return jsonify({"alert_id": alert_id, "status": status, "updated_at": now})
 
 
+
 @app.get("/api/decoys")
 def api_decoys():
-    """Return registered adaptive decoys."""
+    """Return registered decoys plus deployable catalog implementations."""
     connection = get_connection()
-
     try:
         rows = connection.execute(
             """
-            SELECT
-                decoy_id,
-                name,
-                type,
-                container_name,
-                status,
-                activated_at
+            SELECT decoy_id, name, type, container_name, status, activated_at
             FROM decoys
             ORDER BY decoy_id
             """
@@ -572,7 +566,40 @@ def api_decoys():
     finally:
         connection.close()
 
-    return jsonify(rows_as_dicts(rows))
+    registered = {row["name"]: dict(row) for row in rows}
+    catalog_path = PROJECT_ROOT / "adaptive" / "decoy_catalog.json"
+    try:
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        catalog = {"decoys": {}}
+
+    results = []
+    catalog_decoys = catalog.get("decoys", {})
+    for decoy_key, metadata in catalog_decoys.items():
+        if metadata.get("implementation_status") != "deployed":
+            continue
+        item = registered.pop(decoy_key, None)
+        if item is None:
+            item = {
+                "decoy_id": None,
+                "name": decoy_key,
+                "type": "adaptive_catalog",
+                "container_name": metadata.get("container_name"),
+                "status": "inactive",
+                "activated_at": None,
+            }
+        item["display_name"] = metadata.get("name", decoy_key)
+        item["description"] = metadata.get("description", "")
+        item["port"] = metadata.get("port")
+        item["catalog_managed"] = True
+        results.append(item)
+
+    for item in registered.values():
+        item["display_name"] = item["name"].replace("_", " ").title()
+        item["catalog_managed"] = False
+        results.append(item)
+
+    return jsonify(results)
 
 
 @app.get("/api/decoys/<decoy_key>/events")
@@ -644,15 +671,26 @@ def deactivate_decoy(decoy_key):
     return jsonify(output)
 
 
+
 @app.post("/api/decoys/<decoy_key>/activate")
 def activate_decoy(decoy_key):
-    """Activate a registered decoy through the guarded orchestrator."""
+    """Activate an allow-listed decoy through a guarded workflow."""
     rejected = require_confirmed_action()
     if rejected:
         return rejected
     payload = request.get_json(silent=True) or {}
     if payload.get("confirm") != decoy_key:
         return jsonify({"error": "decoy_confirmation_mismatch"}), 400
+
+    catalog_path = PROJECT_ROOT / "adaptive" / "decoy_catalog.json"
+    try:
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        catalog_entry = catalog.get("decoys", {}).get(decoy_key)
+    except (OSError, json.JSONDecodeError):
+        catalog_entry = None
+    if catalog_entry is None or catalog_entry.get("implementation_status") != "deployed":
+        return jsonify({"error": "decoy_not_deployed"}), 404
+
     connection = get_connection()
     try:
         decoy = connection.execute(
@@ -661,41 +699,47 @@ def activate_decoy(decoy_key):
         ).fetchone()
         decision = connection.execute(
             """
-            SELECT decision_id
-            FROM deception_decisions
+            SELECT decision_id FROM deception_decisions
             WHERE decoy_key = ?
               AND recommended_action = 'ACTIVATE_DECOY'
-            ORDER BY decision_id DESC
-            LIMIT 1
+              AND execution_status = 'recommended'
+            ORDER BY decision_id DESC LIMIT 1
             """,
             (decoy_key,),
         ).fetchone()
     finally:
         connection.close()
-    if decoy is None:
-        return jsonify({"error": "decoy_not_found"}), 404
-    if decoy["status"] == "active":
+
+    if decoy is not None and decoy["status"] == "active":
         return jsonify({"error": "decoy_already_active"}), 409
-    if decision is None:
-        return jsonify({
-            "error": "activation_decision_not_found",
-            "message": "No approved deception decision exists for this decoy.",
-        }), 409
-    script = PROJECT_ROOT / "adaptive" / "orchestrator.py"
+
+    if decision is not None:
+        script = PROJECT_ROOT / "adaptive" / "orchestrator.py"
+        command = [
+            sys.executable, str(script), "--decision-id",
+            str(decision["decision_id"]), "--approve",
+        ]
+    else:
+        script = PROJECT_ROOT / "adaptive" / "manual_activate_decoy.py"
+        command = [
+            sys.executable, str(script), "--decoy-key", decoy_key,
+            "--reason", "Manual dashboard activation", "--approve",
+        ]
+
     if not script.exists():
         return jsonify({"error": "activation_service_unavailable"}), 503
     try:
         result = subprocess.run(
-            [sys.executable, str(script), "--decision-id",
-             str(decision["decision_id"]), "--approve"],
-            cwd=PROJECT_ROOT, capture_output=True, text=True,
+            command, cwd=PROJECT_ROOT, capture_output=True, text=True,
             timeout=120, check=False,
         )
     except subprocess.TimeoutExpired:
         return jsonify({"error": "activation_timed_out"}), 504
     if result.returncode != 0:
         app.logger.error("Decoy activation failed: %s", result.stderr)
-        return jsonify({"error": "activation_failed", "message": result.stderr[-500:]}), 500
+        return jsonify(
+            {"error": "activation_failed", "message": result.stderr[-500:]}
+        ), 500
     try:
         output = json.loads(result.stdout)
     except json.JSONDecodeError:
