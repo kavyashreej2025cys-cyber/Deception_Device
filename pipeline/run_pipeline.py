@@ -207,10 +207,10 @@ def run_supervised_cycle(
 
     decision_results = run_decision_cycle()
 
-    # Preserve the security alert before an eligible decision is executed.
-    alert_results = run_alert_cycle()
-
+    # Execute guarded approvals first so alerts reflect the final outcome.
     auto_approval_results = run_auto_approval_cycle()
+
+    alert_results = run_alert_cycle()
 
     docker_actions_executed = sum(
         1

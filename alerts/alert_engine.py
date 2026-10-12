@@ -27,7 +27,7 @@ def utc_iso_now():
 
 
 def fetch_alertable_decisions():
-    """Return unexecuted decisions that may require attention."""
+    """Return pending or failed decisions requiring attention."""
     connection = get_connection()
 
     try:
@@ -47,7 +47,10 @@ def fetch_alertable_decisions():
                 execution_status,
                 created_at
             FROM deception_decisions
-            WHERE execution_status = 'recommended'
+            WHERE execution_status IN (
+                  'recommended',
+                  'activation_failed'
+              )
             ORDER BY decision_id
             """
         ).fetchall()
@@ -68,6 +71,20 @@ def alert_specification(decision):
     source_ip = decision["source_ip"]
     attack_class = decision["attack_class"]
     decoy_key = decision.get("decoy_key")
+    execution_status = decision.get("execution_status")
+
+    if execution_status == "activation_failed":
+        return {
+            "alert_type": "DECOY_ACTIVATION_FAILED",
+            "severity": "CRITICAL",
+            "title": "Adaptive decoy activation failed",
+            "message": (
+                f"Activation of {decoy_key} failed for source "
+                f"{source_ip}. The detected class was {attack_class} "
+                f"with {confidence:.1%} confidence and risk score "
+                f"{risk_score}. Review the container and lifecycle logs."
+            ),
+        }
 
     if action == "ACTIVATE_DECOY":
         return {
@@ -129,19 +146,30 @@ def alert_specification(decision):
     return None
 
 
-def build_fingerprint(decision):
-    """Create a stable per-decision alert identifier."""
+def build_fingerprint(
+    decision,
+    specification,
+):
+    """Create a stable per-decision and outcome alert identifier."""
+    suffix = decision["recommended_action"]
+
+    if specification["alert_type"] == "DECOY_ACTIVATION_FAILED":
+        suffix = "ACTIVATION_FAILED"
+
     return (
         f"decision:"
         f"{decision['decision_id']}:"
-        f"{decision['recommended_action']}"
+        f"{suffix}"
     )
 
 
 def insert_alert(decision, specification):
     """Insert an alert once and return whether it was new."""
     timestamp = utc_iso_now()
-    fingerprint = build_fingerprint(decision)
+    fingerprint = build_fingerprint(
+        decision,
+        specification,
+    )
 
     connection = get_connection()
 
