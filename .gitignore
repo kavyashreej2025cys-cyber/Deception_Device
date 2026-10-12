@@ -44,3 +44,4 @@ Thumbs.db
 
 # Adaptive decoy runtime logs
 adaptive/decoys/*/logs/
+ai/models/backups/
