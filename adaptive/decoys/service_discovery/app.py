@@ -8,6 +8,7 @@ from flask import Flask, Response, jsonify, render_template, request
 app = Flask(__name__)
 LOG_FILE = os.path.join(os.path.dirname(__file__), "logs", "discovery_events.json")
 DECOY_KEY = os.environ.get("DECOY_KEY", "service_discovery")
+DYNAMIC_STATE_DIR = os.environ.get("DYNAMIC_STATE_DIR", "/app/dynamic_content")
 
 
 def utc_now():
@@ -19,6 +20,17 @@ def client_ip():
     if forwarded:
         return forwarded.split(",", 1)[0].strip()
     return request.remote_addr or ""
+
+
+def adaptive_context():
+    """Load bounded, pipeline-generated synthetic context for this source."""
+    path = os.path.join(DYNAMIC_STATE_DIR, f"{DECOY_KEY}.json")
+    try:
+        with open(path, "r", encoding="utf-8") as state_file:
+            state = json.load(state_file)
+        return state.get("sources", {}).get(client_ip(), {})
+    except (OSError, ValueError, TypeError):
+        return {}
 
 
 def log_event(event_type, details=None):
@@ -71,6 +83,11 @@ def admin():
 @app.get("/api/v1/status")
 def api_surface():
     log_event("api_probe", {"surface": "internal_api"})
+    context = adaptive_context()
+    adaptive_services = [
+        {"name": name, "status": "online"}
+        for name in context.get("visible_assets", [])
+    ]
     return jsonify(
         {
             "service": "NovaTech Service Registry",
@@ -80,9 +97,16 @@ def api_surface():
                 {"name": "identity-api", "status": "online"},
                 {"name": "finance-api", "status": "online"},
                 {"name": "camera-gateway", "status": "degraded"},
-            ],
+            ] + adaptive_services,
+            "adaptive_context": context,
         }
     )
+
+
+@app.get("/adaptive-context")
+def current_adaptive_context():
+    log_event("adaptive_context_access", {"surface": "adaptive_context"})
+    return jsonify(adaptive_context())
 
 
 @app.get("/server-status")

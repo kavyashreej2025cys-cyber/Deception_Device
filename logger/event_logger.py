@@ -5,6 +5,7 @@ import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from config.settings import HONEYPOT_SOURCES
+from adaptive.content_engine import observe_event
 from logger.database import get_connection, init_db
 
 CURSOR_DIR = os.path.join(os.path.dirname(__file__), "cursors")
@@ -107,6 +108,12 @@ def process_source(source, conn):
                     norm["protocol"],
                     norm["details"],
                 ),
+            )
+            observe_event(
+                source.get("decoy_key"),
+                raw,
+                norm,
+                connection=conn,
             )
             new_events += 1
 

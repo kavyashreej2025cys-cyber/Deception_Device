@@ -7,6 +7,7 @@ services:
       - "15000:15000"
     volumes:
       - ./logs:/app/logs
+      - ../../../data/dynamic_content:/app/dynamic_content:ro
     read_only: true
     cap_drop:
       - ALL

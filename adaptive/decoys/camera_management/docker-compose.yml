@@ -8,6 +8,7 @@ services:
       - "18080:18080"
     volumes:
       - ./logs:/app/logs
+      - ../../../data/dynamic_content:/app/dynamic_content:ro
     read_only: true
     tmpfs:
       - /tmp:size=16m,noexec,nosuid

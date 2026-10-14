@@ -130,6 +130,28 @@ def create_indexes(connection):
     )
 
 
+def migrate_attackers_table(connection):
+    """Add current and historical risk fields to older databases."""
+    migrations = [
+        ("peak_risk_score", "INTEGER NOT NULL DEFAULT 0"),
+        ("risk_bucket", "TEXT NOT NULL DEFAULT 'LOW'"),
+    ]
+
+    for column_name, column_definition in migrations:
+        add_column_if_missing(
+            connection=connection,
+            table_name="attackers",
+            column_name=column_name,
+            column_definition=column_definition,
+        )
+
+    connection.execute(
+        """
+        UPDATE attackers
+        SET peak_risk_score = MAX(peak_risk_score, risk_score)
+        """
+    )
+
 def init_db():
     """Create the schema and safely migrate older databases."""
     connection = get_connection()
@@ -280,7 +302,33 @@ def init_db():
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS decoy_content_states (
+            decoy_key TEXT NOT NULL,
+            source_ip TEXT NOT NULL,
+            interaction_count INTEGER NOT NULL DEFAULT 0,
+            behavior_stage TEXT NOT NULL DEFAULT 'discovery',
+            last_event_type TEXT,
+            last_command TEXT,
+            interests_json TEXT NOT NULL DEFAULT '[]',
+            content_json TEXT NOT NULL DEFAULT '{}',
+            first_seen TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (decoy_key, source_ip)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_decoy_content_updated
+        ON decoy_content_states(decoy_key, updated_at)
+        """
+    )
+
     migrate_predictions_table(connection)
+    migrate_attackers_table(connection)
     create_indexes(connection)
 
     connection.commit()

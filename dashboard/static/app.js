@@ -773,11 +773,21 @@ async function showAttackerDetail(attackerId) {
 async function showDecoyEvents(decoyKey) {
   elements.decoyEventDetail.innerHTML = `<p class="loading-cell">Loading ${escapeHtml(formatName(decoyKey))} evidence…</p>`;
   try {
-    const events = await fetchJson(`/api/decoys/${encodeURIComponent(decoyKey)}/events?limit=100`);
+    const [events, adaptiveStates] = await Promise.all([
+      fetchJson(`/api/decoys/${encodeURIComponent(decoyKey)}/events?limit=100`),
+      fetchJson(`/api/decoys/${encodeURIComponent(decoyKey)}/adaptive-content?limit=50`),
+    ]);
     const sources = new Set(events.map((event) => event.source_ip).filter(Boolean));
     const attempts = events.filter((event) => ["login_attempt", "query_attempt", "table_access", "camera_access"].includes(event.event_type)).length;
     const rows = events.map((event) => `<tr><td>${escapeHtml(formatShortTimestamp(event.timestamp))}</td><td>${escapeHtml(event.source_ip || "Unknown")}</td><td>${escapeHtml(formatName(event.event_type))}</td><td><span class="context-text" title="${escapeHtml(safeDetails(event.details))}">${escapeHtml(safeDetails(event.details))}</span></td></tr>`).join("");
-    elements.decoyEventDetail.innerHTML = `<div class="evidence-summary"><div><span>Decoy</span><strong>${escapeHtml(formatName(decoyKey))}</strong></div><div><span>Interactions</span><strong>${events.length}</strong></div><div><span>Sources</span><strong>${sources.size}</strong></div><div><span>High-value actions</span><strong>${attempts}</strong></div></div><div class="table-scroll"><table><thead><tr><th>Time</th><th>Source</th><th>Action</th><th>Captured evidence</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="empty-state">No interactions recorded for this decoy.</td></tr>`}</tbody></table></div>`;
+    const adaptiveCards = adaptiveStates.map((profile) => {
+      const content = profile.content || {};
+      const interests = Array.isArray(profile.interests) ? profile.interests : [];
+      const assets = Array.isArray(content.visible_assets) ? content.visible_assets : [];
+      return `<article class="adaptive-profile-card"><div class="adaptive-profile-heading"><div><small>Attacker source</small><strong>${escapeHtml(profile.source_ip || "Unknown")}</strong></div>${badge(profile.behavior_stage || "discovery", profile.behavior_stage === "exploitation" ? "danger" : "warning")}</div><div class="adaptive-profile-stats"><div><span>Interactions</span><strong>${formatNumber(profile.interaction_count || 0)}</strong></div><div><span>Last action</span><strong>${escapeHtml(formatName(profile.last_event_type || "unknown"))}</strong></div><div><span>Updated</span><strong>${escapeHtml(formatShortTimestamp(profile.updated_at))}</strong></div></div><p><b>Observed interests</b></p><div class="adaptive-chip-row">${interests.length ? interests.map((item) => `<span>${escapeHtml(formatName(item))}</span>`).join("") : "<em>None identified</em>"}</div><p><b>Synthetic content exposed</b></p><div class="adaptive-chip-row adaptive-assets">${assets.length ? assets.map((item) => `<span>${escapeHtml(item)}</span>`).join("") : "<em>Default decoy content</em>"}</div><p class="adaptive-last-command"><b>Latest captured input:</b> ${escapeHtml(profile.last_command || "No command text captured")}</p></article>`;
+    }).join("");
+    const adaptiveSection = `<section class="adaptive-content-section"><div class="adaptive-section-heading"><div><p class="eyebrow">Live adaptation</p><h3>Attacker-driven synthetic content</h3></div><span class="read-only-badge">Safe simulation</span></div>${adaptiveCards || `<p class="empty-state">No adaptive profile exists for this decoy yet. Interact with it from Kali, then refresh.</p>`}</section>`;
+    elements.decoyEventDetail.innerHTML = `<div class="evidence-summary"><div><span>Decoy</span><strong>${escapeHtml(formatName(decoyKey))}</strong></div><div><span>Interactions</span><strong>${events.length}</strong></div><div><span>Sources</span><strong>${sources.size}</strong></div><div><span>High-value actions</span><strong>${attempts}</strong></div></div>${adaptiveSection}<div class="table-scroll"><table><thead><tr><th>Time</th><th>Source</th><th>Action</th><th>Captured evidence</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="empty-state">No interactions recorded for this decoy.</td></tr>`}</tbody></table></div>`;
   } catch (error) {
     elements.decoyEventDetail.innerHTML = `<p class="empty-state">Unable to load decoy activity: ${escapeHtml(error.message)}</p>`;
   }

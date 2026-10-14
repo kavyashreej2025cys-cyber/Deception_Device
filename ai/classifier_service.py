@@ -11,6 +11,7 @@ The service:
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -29,6 +30,9 @@ from logger.database import get_connection
 DEFAULT_POLL_SECONDS = 5
 DEFAULT_WINDOW_SECONDS = 300
 DEFAULT_MINIMUM_EVENTS = 1
+MINIMUM_SERVICE_SEGMENT_EVENTS = int(
+    os.getenv("DECEPTION_SERVICE_SWITCH_MINIMUM_EVENTS", "5")
+)
 
 DUPLICATE_PREDICTION_COOLDOWN_SECONDS = 30
 SIGNIFICANT_CONFIDENCE_CHANGE = 0.05
@@ -164,8 +168,9 @@ def fetch_window_events(
     source_ip,
     start_epoch,
     end_epoch,
+    after_event_id=0,
 ):
-    """Fetch events from one source inside a rolling window."""
+    """Fetch new events from one source inside a rolling window."""
     connection = get_connection()
 
     try:
@@ -174,9 +179,10 @@ def fetch_window_events(
             SELECT *
             FROM events
             WHERE source_ip = ?
+              AND event_id > ?
             ORDER BY event_id ASC
             """,
-            (source_ip,),
+            (source_ip, after_event_id),
         ).fetchall()
     finally:
         connection.close()
@@ -194,6 +200,26 @@ def fetch_window_events(
             matching_events.append(event)
 
     return matching_events
+
+
+def latest_service_segment(events):
+    """Return the newest contiguous target-service interaction segment.
+
+    When an attacker changes from one service to another, older service
+    activity must not dominate the new ML classification.
+    """
+    if not events:
+        return []
+
+    newest_service = events[-1].get("service")
+    segment = []
+
+    for event in reversed(events):
+        if event.get("service") != newest_service:
+            break
+        segment.append(event)
+
+    return list(reversed(segment))
 
 
 
@@ -390,8 +416,9 @@ def classify_source(
     source_ip,
     window_seconds,
     minimum_events,
+    processed_event_id=0,
 ):
-    """Classify the latest rolling window for one source."""
+    """Classify only the latest new target-service segment."""
     latest_event = fetch_latest_event(source_ip)
 
     if latest_event is None:
@@ -410,17 +437,37 @@ def classify_source(
         source_ip=source_ip,
         start_epoch=start_epoch,
         end_epoch=end_epoch,
+        after_event_id=processed_event_id,
     )
 
-    if len(events) < minimum_events:
+    events = latest_service_segment(events)
+
+    required_events = max(
+        minimum_events,
+        MINIMUM_SERVICE_SEGMENT_EVENTS,
+    )
+
+    if len(events) < required_events:
         return {
             "source_ip": source_ip,
             "skipped": True,
+            "target_service": (
+                events[-1].get("service")
+                if events
+                else None
+            ),
             "reason": (
                 f"Only {len(events)} events; "
-                f"minimum is {minimum_events}."
+                f"minimum service-segment evidence is "
+                f"{required_events}."
             ),
         }
+
+    start_epoch = min(
+        event["_ts_epoch"]
+        for event in events
+        if event.get("_ts_epoch") is not None
+    )
 
     prediction_result = predict_event_group(
         bundle=bundle,
@@ -465,6 +512,7 @@ def classify_source(
 
     return {
         "source_ip": source_ip,
+        "target_service": events[-1].get("service"),
         "event_count": len(events),
         "predicted_class": prediction_result[
             "predicted_class"
@@ -499,6 +547,7 @@ def run_cycle(
             source_ip=source_ip,
             window_seconds=window_seconds,
             minimum_events=minimum_events,
+            processed_event_id=processed_event_id,
         )
 
         if result is not None:

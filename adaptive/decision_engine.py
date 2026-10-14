@@ -10,6 +10,7 @@ It records recommendations but does not control Docker.
 """
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,11 +25,17 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from logger.database import get_connection
 
 
-POLICY_VERSION = "1.0.1"
+POLICY_VERSION = "1.1.0-lab-high-risk-activation"
 
 MINIMUM_DECISION_CONFIDENCE = 0.55
 PREPARE_CONFIDENCE = 0.60
 ACTIVATE_CONFIDENCE = 0.70
+ACTIVATE_RISK_SCORE = int(
+    os.getenv("DECEPTION_ACTIVATE_RISK_SCORE", "60")
+)
+PREPARE_RISK_SCORE = int(
+    os.getenv("DECEPTION_PREPARE_RISK_SCORE", "45")
+)
 
 
 def utc_iso_now():
@@ -81,13 +88,13 @@ def load_catalog():
 
 def risk_bucket(risk_score):
     """Convert a numerical risk score into its policy bucket."""
-    if risk_score <= 30:
+    if risk_score <= 29:
         return "LOW"
 
-    if risk_score <= 60:
+    if risk_score <= 59:
         return "MEDIUM"
 
-    if risk_score <= 80:
+    if risk_score <= 79:
         return "HIGH"
 
     return "CRITICAL"
@@ -208,21 +215,21 @@ def choose_action(
         }
 
     if (
-        risk_score >= 81
+        risk_score >= ACTIVATE_RISK_SCORE
         and confidence >= ACTIVATE_CONFIDENCE
     ):
         return {
             "recommended_action": "ACTIVATE_DECOY",
             "decoy_key": decoy_key,
             "reason": (
-                f"Critical risk score {risk_score} and "
+                f"Guarded activation risk score {risk_score} and "
                 f"confidence {confidence:.3f} support targeted "
                 f"activation of {decoy_key}."
             ),
         }
 
     if (
-        risk_score >= 61
+        risk_score >= PREPARE_RISK_SCORE
         and confidence >= PREPARE_CONFIDENCE
     ):
         return {

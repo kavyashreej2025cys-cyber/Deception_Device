@@ -41,6 +41,7 @@ HONEYPOT_SOURCES = [
     {
         "service": "database",
         "cursor_key": "finance_database",
+        "decoy_key": "finance_database",
         "log_path": os.path.join(
             BASE_DIR,
             "adaptive",
@@ -54,6 +55,7 @@ HONEYPOT_SOURCES = [
     {
         "service": "iot",
         "cursor_key": "camera_management",
+        "decoy_key": "camera_management",
         "log_path": os.path.join(
             BASE_DIR,
             "adaptive",
@@ -67,6 +69,7 @@ HONEYPOT_SOURCES = [
     {
         "service": "ssh",
         "cursor_key": "ssh_admin_server",
+        "decoy_key": "ssh_admin_server",
         "log_path": os.path.join(
             BASE_DIR,
             "adaptive",
@@ -81,6 +84,7 @@ HONEYPOT_SOURCES = [
     {
         "service": "web",
         "cursor_key": "service_discovery",
+        "decoy_key": "service_discovery",
         "log_path": os.path.join(
             BASE_DIR,
             "adaptive",

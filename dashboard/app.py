@@ -627,6 +627,35 @@ def api_decoy_events(decoy_key):
     return jsonify(results)
 
 
+@app.get("/api/decoys/<decoy_key>/adaptive-content")
+def api_decoy_adaptive_content(decoy_key):
+    """Return the safe per-source content narrative built from interactions."""
+    connection = get_connection()
+    try:
+        rows = connection.execute(
+            """
+            SELECT decoy_key, source_ip, interaction_count, behavior_stage,
+                   last_event_type, last_command, interests_json,
+                   content_json, first_seen, updated_at
+            FROM decoy_content_states
+            WHERE decoy_key = ?
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (decoy_key, bounded_limit()),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    results = []
+    for row in rows:
+        item = dict(row)
+        item["interests"] = parse_json_value(item.pop("interests_json"))
+        item["content"] = parse_json_value(item.pop("content_json"))
+        results.append(item)
+    return jsonify(results)
+
+
 @app.post("/api/decoys/<decoy_key>/deactivate")
 def deactivate_decoy(decoy_key):
     """Run the existing guarded deactivation workflow after confirmation."""

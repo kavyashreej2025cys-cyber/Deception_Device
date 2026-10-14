@@ -14,7 +14,8 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
-DECOY_KEY = "camera_management"
+DECOY_KEY = os.environ.get("DECOY_KEY", "camera_management")
+DYNAMIC_STATE_DIR = os.environ.get("DYNAMIC_STATE_DIR", "/app/dynamic_content")
 LOG_FILE = os.path.join(
     os.path.dirname(__file__),
     "logs",
@@ -62,6 +63,33 @@ def safe_text(value, maximum_length=500):
     return str(value).replace("\x00", "")[:maximum_length]
 
 
+def adaptive_context():
+    path = os.path.join(DYNAMIC_STATE_DIR, f"{DECOY_KEY}.json")
+    try:
+        with open(path, "r", encoding="utf-8") as state_file:
+            state = json.load(state_file)
+        return state.get("sources", {}).get(request.remote_addr or "", {})
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def visible_cameras():
+    cameras = list(CAMERAS)
+    context = adaptive_context()
+    if any("CAM-" in asset for asset in context.get("visible_assets", [])):
+        cameras.append({
+            "id": "CAM-ARCHIVE-04",
+            "name": "Archive Entrance",
+            "address": "10.42.8.34",
+            "model": "NV-CAM-DOME-5",
+            "firmware": "4.7.1",
+            "status": "degraded",
+            "recording": True,
+            "classification": "synthetic_decoy",
+        })
+    return cameras
+
+
 def log_event(event_type, details=None):
     event = {
         "timestamp": utc_iso_now(),
@@ -99,15 +127,20 @@ def home():
 
 @app.get("/api/v1/devices")
 def list_devices():
-    log_event("device_discovery", {"device_count": len(CAMERAS)})
-    return jsonify({"devices": CAMERAS, "count": len(CAMERAS)})
+    cameras = visible_cameras()
+    log_event("device_discovery", {"device_count": len(cameras)})
+    return jsonify({
+        "devices": cameras,
+        "count": len(cameras),
+        "adaptive_context": adaptive_context(),
+    })
 
 
 @app.get("/api/v1/devices/<camera_id>")
 def camera_detail(camera_id):
     camera_id = safe_text(camera_id, 80).upper()
     log_event("camera_access", {"camera_id": camera_id, "action": "metadata"})
-    for camera in CAMERAS:
+    for camera in visible_cameras():
         if camera["id"] == camera_id:
             return jsonify(camera)
     return jsonify({"error": "device_not_found", "device_id": camera_id}), 404
@@ -163,6 +196,12 @@ def firmware():
         "download": "/firmware/visioncontrol-6.4.3.bin",
         "signature_required": True,
     })
+
+
+@app.get("/adaptive-context")
+def current_adaptive_context():
+    log_event("adaptive_context_access")
+    return jsonify(adaptive_context())
 
 
 @app.route("/onvif/device_service", methods=["GET", "POST"])

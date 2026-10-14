@@ -7,9 +7,8 @@ Automates:
 3. Random Forest classification
 4. Adaptive decision generation
 
-Docker activation remains manual by default. Guarded lab-only automatic
-approval can be explicitly enabled for strictly eligible attack decisions.
-Automatic deactivation is never performed.
+Docker lifecycle changes remain disabled by default. Guarded lab-only
+activation, replacement and cleanup can be explicitly enabled.
 """
 
 import argparse
@@ -32,6 +31,10 @@ from adaptive.auto_approver import (
     run_auto_approval_cycle,
 )
 from adaptive.decision_engine import run_decision_cycle
+from adaptive.lifecycle_manager import (
+    enabled as auto_lifecycle_enabled,
+    run_lifecycle_cycle,
+)
 from ai.classifier_service import (
     load_model_bundle,
     run_cycle as run_classifier_cycle,
@@ -210,11 +213,22 @@ def run_supervised_cycle(
     # Execute guarded approvals first so alerts reflect the final outcome.
     auto_approval_results = run_auto_approval_cycle()
 
+    # Make-before-break: approval makes the replacement healthy first, then
+    # the lifecycle manager may retire the previous or idle decoy.
+    lifecycle_results = run_lifecycle_cycle(
+        auto_approval_results
+    )
+
     alert_results = run_alert_cycle()
 
     docker_actions_executed = sum(
         1
         for result in auto_approval_results
+        if result.get("docker_action_executed")
+    )
+    docker_actions_executed += sum(
+        1
+        for result in lifecycle_results
         if result.get("docker_action_executed")
     )
 
@@ -233,6 +247,8 @@ def run_supervised_cycle(
         "alert_results": alert_results,
         "auto_approval_enabled": auto_approval_enabled(),
         "auto_approval_results": auto_approval_results,
+        "auto_lifecycle_enabled": auto_lifecycle_enabled(),
+        "lifecycle_results": lifecycle_results,
         "docker_actions_executed": docker_actions_executed,
         "pending_activations": pending_activations,
         "approval_required": pending_activations > 0,
@@ -247,6 +263,7 @@ def cycle_has_activity(summary):
         or summary["classifier_results"]
         or summary["decision_results"]
 	or summary["auto_approval_results"]
+	or summary["lifecycle_results"]
 	or summary["alert_results"]
     )
 

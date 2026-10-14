@@ -1,0 +1,38 @@
+[Unit]
+Description=Cyber Deception Guarded Traffic Redirector
+Documentation=file:///home/kavya/cyber-deception/
+Wants=network-online.target
+After=network-online.target docker.service cyber-deception-pipeline.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/kavya/cyber-deception
+ExecStart=/home/kavya/cyber-deception/venv/bin/python /home/kavya/cyber-deception/routing/redirect_manager.py --poll-seconds 2
+ExecStopPost=-/usr/sbin/nft delete table inet deception_redirect
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+Environment=PYTHONUNBUFFERED=1
+Environment=DECEPTION_REDIRECT_ALLOWED_NETWORK=192.168.56.0/24
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=false
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/run
+
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

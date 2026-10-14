@@ -22,6 +22,7 @@ LOG_FILE = os.path.join(
     "logs",
     "finance_events.json",
 )
+DYNAMIC_STATE_DIR = os.environ.get("DYNAMIC_STATE_DIR", "/app/dynamic_content")
 
 FAKE_TABLES = {
     "accounts_payable": [
@@ -109,6 +110,33 @@ def safe_text(value, maximum_length=500):
     return text[:maximum_length]
 
 
+def adaptive_context():
+    path = os.path.join(DYNAMIC_STATE_DIR, f"{DECOY_KEY}.json")
+    try:
+        with open(path, "r", encoding="utf-8") as state_file:
+            state = json.load(state_file)
+        return state.get("sources", {}).get(request.remote_addr or "", {})
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def visible_tables():
+    tables = dict(FAKE_TABLES)
+    context = adaptive_context()
+    for asset in context.get("visible_assets", []):
+        safe_name = "".join(
+            character if character.isalnum() else "_"
+            for character in safe_text(asset, 80).lower()
+        ).strip("_")
+        if safe_name and safe_name not in tables:
+            tables[safe_name] = [{
+                "record": f"SYN-{context.get('interaction_count', 0):04d}",
+                "classification": "synthetic_decoy",
+                "status": context.get("behavior_stage", "discovery"),
+            }]
+    return tables
+
+
 def log_event(event_type, details=None):
     """Write one structured JSON event."""
     event = {
@@ -184,10 +212,13 @@ def list_schemas():
 def list_tables():
     log_event("list_tables")
 
+    tables = visible_tables()
+
     return jsonify(
         {
             "schema": "finance",
-            "tables": sorted(FAKE_TABLES),
+            "tables": sorted(tables),
+            "adaptive_context": adaptive_context(),
         }
     )
 
@@ -206,7 +237,8 @@ def get_table(table_name):
         },
     )
 
-    if normalized_name not in FAKE_TABLES:
+    tables = visible_tables()
+    if normalized_name not in tables:
         return (
             jsonify(
                 {
@@ -222,9 +254,9 @@ def get_table(table_name):
             "schema": "finance",
             "table": normalized_name,
             "row_count": len(
-                FAKE_TABLES[normalized_name]
+                tables[normalized_name]
             ),
-            "rows": FAKE_TABLES[normalized_name],
+            "rows": tables[normalized_name],
         }
     )
 
@@ -250,7 +282,7 @@ def query():
 
     normalized_query = query_text.lower()
 
-    for table_name, rows in FAKE_TABLES.items():
+    for table_name, rows in visible_tables().items():
         if table_name in normalized_query:
             return jsonify(
                 {
@@ -274,6 +306,12 @@ def query():
         ),
         403,
     )
+
+
+@app.get("/adaptive-context")
+def current_adaptive_context():
+    log_event("adaptive_context_access")
+    return jsonify(adaptive_context())
 
 
 @app.post("/login")
