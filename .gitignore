@@ -16,6 +16,7 @@ __pycache__/
 data/
 
 # Honeypot-generated logs
+**/logs/
 honeypots/*/logs/
 
 # Central logger cursor state
@@ -26,6 +27,7 @@ ai/scenario_log*.jsonl
 ai/dataset/*.csv
 
 # Trained model binaries
+ai/models/
 ai/models/*.joblib
 ai/models/*.pkl
 
@@ -63,3 +65,4 @@ dashboard.before-*/
 *.zip
 
 backups/
+*.joblib
